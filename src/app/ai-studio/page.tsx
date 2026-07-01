@@ -194,14 +194,14 @@ export default function AIStudioPage() {
               <GeneratedPostCard 
                 platform="LinkedIn"
                 platformColor="bg-[#0077B5]"
-                caption="The B2B marketing landscape is shifting rapidly. 🚀\n\nAI isn't just about writing copy faster—it's about understanding your audience at scale.\n\nHere are 3 ways AI is changing the game for revenue teams:\n1️⃣ Hyper-personalized outreach\n2️⃣ Predictive lead scoring\n3️⃣ Dynamic content creation\n\nHow is your team adapting to these changes?\n\n#B2BMarketing #ArtificialIntelligence #AcmeCorp #Growth"
+                caption={"The B2B marketing landscape is shifting rapidly. 🚀\n\nAI isn't just about writing copy faster—it's about understanding your audience at scale.\n\nHere are 3 ways AI is changing the game for revenue teams:\n1️⃣ Hyper-personalized outreach\n2️⃣ Predictive lead scoring\n3️⃣ Dynamic content creation\n\nHow is your team adapting to these changes?\n\n#B2BMarketing #ArtificialIntelligence #AcmeCorp #Growth"}
                 hashtags={['#B2BMarketing', '#ArtificialIntelligence', '#AcmeCorp', '#Growth']}
               />
 
               <GeneratedPostCard 
                 platform="X (Twitter)"
                 platformColor="bg-black"
-                caption="AI isn't just a buzzword; it's the new standard for B2B marketing. If you're not using it for personalization and predictive scoring, you're falling behind. 🤖📈\n\nWhat's your biggest challenge with AI adoption? 👇\n\n#B2BMarketing #AI #TechTrends"
+                caption={"AI isn't just a buzzword; it's the new standard for B2B marketing. If you're not using it for personalization and predictive scoring, you're falling behind. 🤖📈\n\nWhat's your biggest challenge with AI adoption? 👇\n\n#B2BMarketing #AI #TechTrends"}
                 hashtags={['#B2BMarketing', '#AI', '#TechTrends']}
               />
 

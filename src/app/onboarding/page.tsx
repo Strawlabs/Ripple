@@ -3,13 +3,90 @@
 import React, { useState } from 'react';
 import { MessageCircle, CheckCircle2, ArrowRight, ArrowLeft, QrCode } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const router = useRouter();
 
-  const handleNext = () => {
-    if (step < 5) setStep(step + 1);
+  // Step 1 States
+  const [name, setName] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [website, setWebsite] = useState('');
+  const [description, setDescription] = useState('');
+  
+  // Cross-step State
+  const [brandId, setBrandId] = useState<string | null>(null);
+
+  // Step 2 State
+  const [personality, setPersonality] = useState<string>('');
+
+  // Step 3 State
+  const [socials, setSocials] = useState<string[]>([]);
+
+  React.useEffect(() => {
+    async function loadUserData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', user.id)
+          .single();
+        if (data?.name) {
+          setName(data.name);
+        }
+      }
+    }
+    loadUserData();
+  }, []);
+
+  const handleNext = async () => {
+    if (step === 1) {
+      setIsSubmitting(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // Update user's name in public.users
+        await supabase
+          .from('users')
+          .update({ name: name.trim() })
+          .eq('id', user.id);
+
+        if (brandId) {
+          await supabase.from('brands').update({
+            company_name: companyName,
+            website: website,
+            industry: industry,
+          }).eq('id', brandId);
+        } else {
+          const { data, error } = await supabase.from('brands').insert({
+            company_name: companyName,
+            website: website,
+            industry: industry,
+            user_id: user.id
+          }).select().single();
+          
+          if (data) {
+            setBrandId(data.id);
+          }
+        }
+      }
+      setIsSubmitting(false);
+      setStep(2);
+    } else if (step === 2) {
+      if (brandId && personality) {
+        setIsSubmitting(true);
+        await supabase.from('brands').update({ tone: personality }).eq('id', brandId);
+        setIsSubmitting(false);
+      }
+      setStep(3);
+    } else if (step === 3) {
+      setStep(4);
+    } else if (step === 4) {
+      setStep(5);
+    }
   };
 
   const handleBack = () => {
@@ -18,6 +95,18 @@ export default function OnboardingWizard() {
 
   const handleFinish = () => {
     router.push('/dashboard');
+  };
+
+  const handleConnectSocial = async (platform: string) => {
+    if (socials.includes(platform)) return;
+    setSocials([...socials, platform]);
+    if (brandId) {
+      await supabase.from('social_accounts').insert({
+        brand_id: brandId,
+        platform: platform,
+        status: 'pending'
+      });
+    }
   };
 
   const steps = [
@@ -79,28 +168,60 @@ export default function OnboardingWizard() {
             
             <div className="space-y-4 mt-6">
               <div>
+                <label className="block text-sm font-semibold text-[#075E54] mb-2">Your Name</label>
+                <input 
+                  type="text" 
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all" 
+                  placeholder="John Doe" 
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-semibold text-[#075E54] mb-2">Company Name</label>
-                <input type="text" className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all" placeholder="Acme Corp" />
+                <input 
+                  type="text" 
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all" 
+                  placeholder="Acme Corp" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#075E54] mb-2">Industry</label>
-                <select className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all bg-white text-gray-700">
-                  <option>Select an industry...</option>
-                  <option>E-commerce & Retail</option>
-                  <option>Technology & Software</option>
-                  <option>Healthcare & Wellness</option>
-                  <option>Food & Beverage</option>
-                  <option>Professional Services</option>
-                  <option>Other</option>
+                <select 
+                  value={industry}
+                  onChange={(e) => setIndustry(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all bg-white text-gray-700"
+                >
+                  <option value="">Select an industry...</option>
+                  <option value="E-commerce & Retail">E-commerce & Retail</option>
+                  <option value="Technology & Software">Technology & Software</option>
+                  <option value="Healthcare & Wellness">Healthcare & Wellness</option>
+                  <option value="Food & Beverage">Food & Beverage</option>
+                  <option value="Professional Services">Professional Services</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#075E54] mb-2">Website URL</label>
-                <input type="url" className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all" placeholder="https://example.com" />
+                <input 
+                  type="url" 
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all" 
+                  placeholder="https://example.com" 
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#075E54] mb-2">Business Description</label>
-                <textarea rows={4} className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all resize-none" placeholder="What does your business do? What makes it special?"></textarea>
+                <textarea 
+                  rows={4} 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#25D366] transition-all resize-none" 
+                  placeholder="What does your business do? What makes it special?"
+                ></textarea>
               </div>
             </div>
           </div>
@@ -114,8 +235,16 @@ export default function OnboardingWizard() {
             
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8">
               {['Professional', 'Friendly', 'Corporate', 'Educational', 'Creative', 'Humorous'].map((trait) => (
-                <div key={trait} className="cursor-pointer border-2 border-gray-200 hover:border-[#25D366] rounded-2xl p-4 text-center transition-all hover:bg-[#25D366]/5 group">
-                  <span className="font-bold text-gray-700 group-hover:text-[#075E54]">{trait}</span>
+                <div 
+                  key={trait} 
+                  onClick={() => setPersonality(trait)}
+                  className={`cursor-pointer border-2 rounded-2xl p-4 text-center transition-all group ${
+                    personality === trait ? 'border-[#25D366] bg-[#25D366]/10' : 'border-gray-200 hover:border-[#25D366] hover:bg-[#25D366]/5'
+                  }`}
+                >
+                  <span className={`font-bold ${
+                    personality === trait ? 'text-[#075E54]' : 'text-gray-700 group-hover:text-[#075E54]'
+                  }`}>{trait}</span>
                 </div>
               ))}
             </div>
@@ -137,8 +266,12 @@ export default function OnboardingWizard() {
                     <p className="text-sm text-gray-500">Company Page or Personal Profile</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                  Connect
+                <button 
+                  onClick={() => handleConnectSocial('LinkedIn')}
+                  disabled={socials.includes('LinkedIn')}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {socials.includes('LinkedIn') ? 'Pending' : 'Connect'}
                 </button>
               </div>
               
@@ -150,8 +283,12 @@ export default function OnboardingWizard() {
                     <p className="text-sm text-gray-500">Facebook Page</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                  Connect
+                <button 
+                  onClick={() => handleConnectSocial('Facebook')}
+                  disabled={socials.includes('Facebook')}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {socials.includes('Facebook') ? 'Pending' : 'Connect'}
                 </button>
               </div>
 
@@ -163,8 +300,12 @@ export default function OnboardingWizard() {
                     <p className="text-sm text-gray-500">Professional Account</p>
                   </div>
                 </div>
-                <button className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
-                  Connect
+                <button 
+                  onClick={() => handleConnectSocial('Instagram')}
+                  disabled={socials.includes('Instagram')}
+                  className="px-4 py-2 bg-white border border-gray-200 rounded-full font-semibold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {socials.includes('Instagram') ? 'Pending' : 'Connect'}
                 </button>
               </div>
             </div>
@@ -210,8 +351,8 @@ export default function OnboardingWizard() {
                 <span className="font-semibold text-gray-700">Brand Voice Analyzed</span>
               </div>
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-gray-300" />
-                <span className="font-semibold text-gray-500">Social Accounts Connected</span>
+                <CheckCircle2 className={`w-5 h-5 ${socials.length > 0 ? 'text-[#25D366]' : 'text-gray-300'}`} />
+                <span className={`font-semibold ${socials.length > 0 ? 'text-gray-700' : 'text-gray-500'}`}>Social Accounts Connected</span>
               </div>
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-[#25D366]" />
@@ -228,7 +369,7 @@ export default function OnboardingWizard() {
             className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all ${
               step > 1 ? 'text-gray-600 hover:bg-gray-100' : 'text-transparent cursor-default'
             }`}
-            disabled={step === 1}
+            disabled={step === 1 || isSubmitting}
           >
             <ArrowLeft className="w-5 h-5" />
             Back
@@ -237,9 +378,10 @@ export default function OnboardingWizard() {
           {step < 5 ? (
             <button 
               onClick={handleNext}
-              className="flex items-center gap-2 px-8 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-full font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-8 py-3 bg-[#25D366] hover:bg-[#128C7E] text-white rounded-full font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
+              {isSubmitting ? 'Saving...' : 'Next'}
               <ArrowRight className="w-5 h-5" />
             </button>
           ) : (

@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { 
   MessageCircle, 
   Sparkles, 
@@ -28,10 +29,12 @@ export default function LandingPage() {
             <span className="font-bold text-xl text-[#075E54]">Ripple</span>
           </div>
           <div className="flex items-center gap-4">
-            <button className="hidden sm:block text-gray-600 hover:text-gray-900 font-medium">Log in</button>
-            <button className="bg-[#25D366] hover:bg-[#128C7E] text-white px-4 py-2 rounded-full font-medium transition-colors">
+            <Link href="/login" className="hidden sm:block text-gray-600 hover:text-gray-900 font-medium">
+              Log in
+            </Link>
+            <Link href="/signup" className="bg-[#25D366] hover:bg-[#128C7E] text-white px-4 py-2 rounded-full font-medium transition-colors">
               Start Free Trial
-            </button>
+            </Link>
           </div>
         </div>
       </nav>
@@ -47,10 +50,10 @@ export default function LandingPage() {
               Create posts, generate images, publish content, schedule campaigns, and manage social media using simple WhatsApp conversations.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <button className="w-full sm:w-auto bg-[#25D366] hover:bg-[#128C7E] text-white px-8 py-4 rounded-full font-bold text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2">
+              <Link href="/signup" className="w-full sm:w-auto bg-[#25D366] hover:bg-[#128C7E] text-white px-8 py-4 rounded-full font-bold text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2">
                 Start Free Trial
                 <ArrowRight className="w-5 h-5" />
-              </button>
+              </Link>
               <button className="w-full sm:w-auto bg-white hover:bg-gray-50 text-[#075E54] border-2 border-gray-200 px-8 py-4 rounded-full font-bold text-lg transition-all flex items-center justify-center gap-2">
                 Watch Demo
               </button>
@@ -201,9 +204,9 @@ function PricingCard({ name, price, features, featured = false }: { name: string
           </li>
         ))}
       </ul>
-      <button className={`w-full py-3 rounded-xl font-bold transition-colors ${featured ? 'bg-white text-[#075E54] hover:bg-gray-50' : 'bg-[#ece5dd] text-[#075E54] hover:bg-gray-200'}`}>
+      <Link href="/signup" className={`w-full py-3 rounded-xl font-bold text-center transition-colors block ${featured ? 'bg-white text-[#075E54] hover:bg-gray-50' : 'bg-[#ece5dd] text-[#075E54] hover:bg-gray-200'}`}>
         Get Started
-      </button>
+      </Link>
     </div>
   );
 }

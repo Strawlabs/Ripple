@@ -6,17 +6,24 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-export default function LoginPage() {
+export default function SignupPage() {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Basic validation
+    if (!name.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
       setError('Please enter a valid email address.');
       return;
@@ -25,28 +32,56 @@ export default function LoginPage() {
       setError('Password must be at least 6 characters.');
       return;
     }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
 
     setLoading(true);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      // 1. Sign up user in Supabase Auth
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    setLoading(false);
+      if (signUpError) {
+        throw signUpError;
+      }
 
-    if (signInError) {
-      setError(signInError.message);
-    } else {
-      router.push('/dashboard');
+      if (data?.user) {
+        // 2. Update user's name if possible (database trigger handles row creation)
+        try {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ name: name.trim() })
+            .eq('id', data.user.id);
+          
+          if (updateError) {
+            throw updateError;
+          }
+        } catch (updateErr) {
+          // Fail silently if unconfirmed email or RLS restricts updates before email verification
+          console.warn('Failed to update user name during signup, failing silently:', updateErr);
+        }
+
+        router.push('/onboarding');
+      } else {
+        throw new Error('Signup succeeded but no user data was returned.');
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during signup.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSignup = () => {
     console.log('Continue with Google clicked');
   };
 
-  const handleWhatsAppLogin = () => {
+  const handleWhatsAppSignup = () => {
     console.log('Continue with WhatsApp clicked');
   };
 
@@ -60,11 +95,11 @@ export default function LoginPage() {
           <span className="font-bold text-3xl text-[#075E54] tracking-tight">Ripple</span>
         </Link>
         <h2 className="text-center text-3xl font-extrabold text-[#075E54]">
-          Welcome back
+          Create an account
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          Sign in to manage your AI marketing campaigns. <br />
-          Don't have an account? <Link href="/signup" className="font-semibold text-[#128C7E] hover:text-[#075E54]">Sign up</Link>
+          Sign up to manage your AI marketing campaigns. <br />
+          Already have an account? <Link href="/login" className="font-semibold text-[#128C7E] hover:text-[#075E54]">Log in</Link>
         </p>
       </div>
 
@@ -75,49 +110,79 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <form className="space-y-6" onSubmit={handleLogin}>
+          <form className="space-y-6" onSubmit={handleSignup}>
+            <div>
+              <label htmlFor="name" className="block text-sm font-semibold text-[#075E54]">
+                Full Name
+              </label>
+              <div className="mt-2">
+                <input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
+                  placeholder="John Doe"
+                />
+              </div>
+            </div>
+
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-[#075E54]">
                 Email address
               </label>
               <div className="mt-2">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
-                    placeholder="you@example.com"
-                  />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
+                  placeholder="you@example.com"
+                />
               </div>
             </div>
 
             <div>
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="block text-sm font-semibold text-[#075E54]">
-                  Password
-                </label>
-                <div className="text-sm">
-                  <a href="#" className="font-medium text-[#128C7E] hover:text-[#075E54] transition-colors">
-                    Forgot your password?
-                  </a>
-                </div>
-              </div>
+              <label htmlFor="password" className="block text-sm font-semibold text-[#075E54]">
+                Password
+              </label>
               <div className="mt-2">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
-                    placeholder="••••••••"
-                  />
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
+                  placeholder="••••••••"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-semibold text-[#075E54]">
+                Confirm Password
+              </label>
+              <div className="mt-2">
+                <input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="appearance-none block w-full px-4 py-3 border border-gray-200 rounded-2xl shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:border-transparent transition-all text-gray-900"
+                  placeholder="••••••••"
+                />
               </div>
             </div>
 
@@ -127,7 +192,7 @@ export default function LoginPage() {
                 disabled={loading}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-2xl shadow-sm text-lg font-bold text-white bg-[#25D366] hover:bg-[#128C7E] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Logging in...' : 'Log in'}
+                {loading ? 'Creating account...' : 'Sign up'}
               </button>
             </div>
           </form>
@@ -144,7 +209,7 @@ export default function LoginPage() {
 
             <div className="mt-8 space-y-4">
               <button
-                onClick={handleWhatsAppLogin}
+                onClick={handleWhatsAppSignup}
                 className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-[#25D366] rounded-2xl shadow-sm bg-white text-lg font-bold text-[#075E54] hover:bg-[#25D366]/5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#25D366] transition-all"
               >
                 <MessageCircle className="w-6 h-6 text-[#25D366]" />
@@ -152,7 +217,7 @@ export default function LoginPage() {
               </button>
               
               <button
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleSignup}
                 className="w-full flex items-center justify-center gap-3 py-3 px-4 border-2 border-gray-200 rounded-2xl shadow-sm bg-white text-lg font-bold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-200 transition-all"
               >
                 <svg className="w-6 h-6" viewBox="0 0 24 24">

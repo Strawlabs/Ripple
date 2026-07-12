@@ -25,7 +25,7 @@ import {
 import Link from 'next/link';
 
 export default function BillingPage() {
-  const currentPlan = "Creator";
+  const currentPlan: string = "Creator";
 
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex">

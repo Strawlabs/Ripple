@@ -16,7 +16,8 @@ import {
   Clock,
   Lightbulb,
   Target,
-  MessageCircle
+  MessageCircle,
+  CheckCircle2
 } from 'lucide-react';
 import Link from 'next/link';
 

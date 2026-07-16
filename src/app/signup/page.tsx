@@ -44,6 +44,9 @@ export default function SignupPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: { name: name.trim() }
+        }
       });
 
       if (signUpError) {
@@ -51,21 +54,6 @@ export default function SignupPage() {
       }
 
       if (data?.user) {
-        // 2. Update user's name if possible (database trigger handles row creation)
-        try {
-          const { error: updateError } = await supabase
-            .from('users')
-            .update({ name: name.trim() })
-            .eq('id', data.user.id);
-          
-          if (updateError) {
-            throw updateError;
-          }
-        } catch (updateErr) {
-          // Fail silently if unconfirmed email or RLS restricts updates before email verification
-          console.warn('Failed to update user name during signup, failing silently:', updateErr);
-        }
-
         router.push('/onboarding');
       } else {
         throw new Error('Signup succeeded but no user data was returned.');

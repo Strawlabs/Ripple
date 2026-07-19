@@ -50,13 +50,14 @@ export default function SignupPage() {
       });
 
       if (signUpError) {
-        throw signUpError;
+        setError(signUpError.message);
+        return;
       }
 
       if (data?.user) {
         router.push('/onboarding');
       } else {
-        throw new Error('Signup succeeded but no user data was returned.');
+        setError('Signup succeeded but no user data was returned.');
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during signup.');

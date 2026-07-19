@@ -1,4 +1,8 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -28,6 +32,200 @@ import {
 import Link from 'next/link';
 
 export default function BrandMemoryPage() {
+  const [brandId, setBrandId] = useState<string | null>(null);
+  const [brandMemoryId, setBrandMemoryId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [error, setError] = useState('');
+  const router = useRouter();
+
+  // Controlled database fields
+  const [companyName, setCompanyName] = useState('');
+  const [tone, setTone] = useState('Professional');
+  const [audience, setAudience] = useState('');
+  const [rules, setRules] = useState('');
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [newHashtag, setNewHashtag] = useState('');
+
+  // Local state only fields (unsupported by DB schema)
+  const [tagline, setTagline] = useState('Innovating the future of social management.');
+  const [productsOfferings, setProductsOfferings] = useState('Social media scheduling tool, AI content generator, unified inbox, analytics dashboard.');
+  const [servicesFeatures, setServicesFeatures] = useState('SaaS platform for marketing teams, dedicated account management for enterprise clients, 24/7 technical support.');
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError('');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+
+        // 1. Fetch brand
+        const { data: brandData, error: brandError } = await supabase
+          .from('brands')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (brandError) throw brandError;
+
+        if (brandData) {
+          setBrandId(brandData.id);
+          setCompanyName(brandData.company_name || '');
+          setTone(brandData.tone || 'Professional');
+
+          // 2. Fetch brand memory using brandData.id
+          const { data: memoryData, error: memoryError } = await supabase
+            .from('brand_memory')
+            .select('*')
+            .eq('brand_id', brandData.id)
+            .maybeSingle();
+
+          if (memoryError) throw memoryError;
+
+          if (memoryData) {
+            setBrandMemoryId(memoryData.id);
+            setAudience(memoryData.audience || '');
+            setRules(memoryData.rules || '');
+            
+            let parsedHashtags: string[] = [];
+            if (Array.isArray(memoryData.hashtags)) {
+              parsedHashtags = memoryData.hashtags;
+            }
+            setHashtags(parsedHashtags);
+          }
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch brand memory details.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [router]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    setSuccess(false);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      let activeBrandId = brandId;
+      
+      if (activeBrandId) {
+        // Update existing brand
+        const { error: brandUpdateError } = await supabase
+          .from('brands')
+          .update({
+            company_name: companyName.trim(),
+            tone: tone
+          })
+          .eq('id', activeBrandId);
+
+        if (brandUpdateError) throw brandUpdateError;
+      } else {
+        // Insert new brand
+        const { data: newBrand, error: brandInsertError } = await supabase
+          .from('brands')
+          .insert({
+            user_id: user.id,
+            company_name: companyName.trim(),
+            tone: tone
+          })
+          .select()
+          .single();
+
+        if (brandInsertError) throw brandInsertError;
+        if (newBrand) {
+          activeBrandId = newBrand.id;
+          setBrandId(newBrand.id);
+        }
+      }
+
+      if (!activeBrandId) {
+        throw new Error('Could not establish brand record ID.');
+      }
+
+      // Handle brand memory table
+      if (brandMemoryId) {
+        // Update brand memory
+        const { error: memoryUpdateError } = await supabase
+          .from('brand_memory')
+          .update({
+            audience: audience.trim(),
+            hashtags: hashtags,
+            rules: rules.trim()
+          })
+          .eq('id', brandMemoryId);
+
+        if (memoryUpdateError) throw memoryUpdateError;
+      } else {
+        // Insert brand memory
+        const { data: newMemory, error: memoryInsertError } = await supabase
+          .from('brand_memory')
+          .insert({
+            brand_id: activeBrandId,
+            audience: audience.trim(),
+            hashtags: hashtags,
+            rules: rules.trim()
+          })
+          .select()
+          .single();
+
+        if (memoryInsertError) throw memoryInsertError;
+        if (newMemory) {
+          setBrandMemoryId(newMemory.id);
+        }
+      }
+
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while saving brand memory.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAddHashtag = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newHashtag.trim()) return;
+    const cleanTag = newHashtag.trim().replace(/^#/, '');
+    if (cleanTag && !hashtags.includes(cleanTag)) {
+      setHashtags([...hashtags, cleanTag]);
+    }
+    setNewHashtag('');
+  };
+
+  const handleDeleteHashtag = (tagToDelete: string) => {
+    setHashtags(hashtags.filter(t => t !== tagToDelete));
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#ece5dd] flex items-center justify-center">
+        <div className="text-[#075E54] font-bold text-xl animate-pulse">Loading brand memory...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex">
       
@@ -72,35 +270,52 @@ export default function BrandMemoryPage() {
               <h1 className="text-3xl font-extrabold text-[#075E54]">Brand Memory</h1>
               <p className="text-gray-600 mt-1">Train the AI on your brand's core identity, tone, and audience.</p>
             </div>
-            <button className="flex items-center gap-2 px-6 py-2.5 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-full shadow-md font-bold transition-colors w-full md:w-auto justify-center">
+            <button 
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 bg-[#25D366] hover:bg-[#1DA851] text-white rounded-full shadow-md font-bold transition-colors w-full md:w-auto justify-center disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
                <Save className="w-4 h-4" />
-               Save Brand Memory
+               {saving ? 'Saving...' : 'Save Brand Memory'}
             </button>
           </header>
+
+          {success && (
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-2xl text-sm font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-500" />
+              Brand memory saved successfully!
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-sm font-medium">
+              {error}
+            </div>
+          )}
 
           <div className="space-y-8 pb-10">
             
             {/* Company Profile */}
             <Section title="Company Profile" icon={<Building className="w-5 h-5 text-[#128C7E]" />} desc="Basic information about your business.">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <InputField label="Company Name" placeholder="e.g. Acme Corp" defaultValue="Acme Corp" />
-                <InputField label="Tagline" placeholder="e.g. Making the world better" defaultValue="Innovating the future of social management." />
+                <InputField label="Company Name" placeholder="e.g. Acme Corp" value={companyName} onChange={setCompanyName} />
+                <InputField label="Tagline" placeholder="e.g. Making the world better" value={tagline} onChange={setTagline} />
               </div>
               <div className="space-y-6">
-                <TextareaField label="Products / Key Offerings" placeholder="What do you sell?" defaultValue="Social media scheduling tool, AI content generator, unified inbox, analytics dashboard." />
-                <TextareaField label="Services / Core Features" placeholder="What services do you provide?" defaultValue="SaaS platform for marketing teams, dedicated account management for enterprise clients, 24/7 technical support." />
+                <TextareaField label="Products / Key Offerings" placeholder="What do you sell?" value={productsOfferings} onChange={setProductsOfferings} />
+                <TextareaField label="Services / Core Features" placeholder="What services do you provide?" value={servicesFeatures} onChange={setServicesFeatures} />
               </div>
             </Section>
 
             {/* Brand Personality */}
             <Section title="Brand Personality" icon={<Sparkles className="w-5 h-5 text-purple-500" />} desc="Select the tone that best represents your brand's voice.">
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <ToneCard icon={<Briefcase />} label="Professional" active />
-                <ToneCard icon={<Smile />} label="Friendly" active />
-                <ToneCard icon={<Building />} label="Corporate" />
-                <ToneCard icon={<GraduationCap />} label="Educational" />
-                <ToneCard icon={<Palette />} label="Creative" />
-                <ToneCard icon={<Laugh />} label="Humorous" />
+                <ToneCard icon={<Briefcase />} label="Professional" active={tone === 'Professional'} onClick={() => setTone('Professional')} />
+                <ToneCard icon={<Smile />} label="Friendly" active={tone === 'Friendly'} onClick={() => setTone('Friendly')} />
+                <ToneCard icon={<Building />} label="Corporate" active={tone === 'Corporate'} onClick={() => setTone('Corporate')} />
+                <ToneCard icon={<GraduationCap />} label="Educational" active={tone === 'Educational'} onClick={() => setTone('Educational')} />
+                <ToneCard icon={<Palette />} label="Creative" active={tone === 'Creative'} onClick={() => setTone('Creative')} />
+                <ToneCard icon={<Laugh />} label="Humorous" active={tone === 'Humorous'} onClick={() => setTone('Humorous')} />
               </div>
             </Section>
 
@@ -109,7 +324,8 @@ export default function BrandMemoryPage() {
               <TextareaField 
                 label="Audience Personas" 
                 placeholder="Describe your ideal customers..." 
-                defaultValue="Founders, Developers, Marketing Managers, Social Media Executives, Tech Enthusiasts, Startups." 
+                value={audience} 
+                onChange={setAudience}
                 rows={3} 
               />
             </Section>
@@ -119,7 +335,8 @@ export default function BrandMemoryPage() {
               <TextareaField 
                 label="Guidelines & Restrictions" 
                 placeholder="e.g. Always professional, avoid emojis..." 
-                defaultValue="Always maintain a professional but approachable tone. Avoid excessive use of emojis (max 2 per post). Never mention competitors. Always mention the brand name 'Acme Corp' in every long-form post." 
+                value={rules} 
+                onChange={setRules}
                 rows={4} 
               />
             </Section>
@@ -127,22 +344,22 @@ export default function BrandMemoryPage() {
             {/* Preferred Hashtags */}
             <Section title="Preferred Hashtags" icon={<Hash className="w-5 h-5 text-pink-500" />} desc="Default hashtags to include in your posts.">
               <div className="mb-3 flex flex-wrap gap-2">
-                 <HashtagChip label="SocialMedia" />
-                 <HashtagChip label="MarketingTips" />
-                 <HashtagChip label="AcmeCorp" />
-                 <HashtagChip label="SaaS" />
-                 <HashtagChip label="Innovation" />
+                 {hashtags.map((tag) => (
+                   <HashtagChip key={tag} label={tag} onDelete={() => handleDeleteHashtag(tag)} />
+                 ))}
               </div>
-              <div className="flex gap-2">
+              <form onSubmit={handleAddHashtag} className="flex gap-2">
                 <input 
                   type="text" 
                   placeholder="Add a hashtag..." 
-                  className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#25D366] text-sm"
+                  value={newHashtag}
+                  onChange={(e) => setNewHashtag(e.target.value)}
+                  className="flex-1 px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#25D366] text-sm text-gray-800"
                 />
-                <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors">
+                <button type="submit" className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors cursor-pointer">
                   Add
                 </button>
-              </div>
+              </form>
             </Section>
 
           </div>
@@ -184,27 +401,29 @@ function Section({ title, icon, desc, children }: { title: string, icon: React.R
   );
 }
 
-function InputField({ label, placeholder, defaultValue }: { label: string, placeholder: string, defaultValue?: string }) {
+function InputField({ label, placeholder, value, onChange }: { label: string, placeholder: string, value: string, onChange: (val: string) => void }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-semibold text-gray-700">{label}</label>
       <input 
         type="text" 
         placeholder={placeholder}
-        defaultValue={defaultValue}
-        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#25D366] text-sm text-gray-800 transition-shadow"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#25D366] text-sm text-gray-800 transition-all"
       />
     </div>
   );
 }
 
-function TextareaField({ label, placeholder, defaultValue, rows = 3 }: { label: string, placeholder: string, defaultValue?: string, rows?: number }) {
+function TextareaField({ label, placeholder, value, onChange, rows = 3 }: { label: string, placeholder: string, value: string, onChange: (val: string) => void, rows?: number }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-semibold text-gray-700">{label}</label>
       <textarea 
         placeholder={placeholder}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
         rows={rows}
         className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#25D366] text-sm text-gray-800 transition-shadow resize-none"
       />
@@ -212,13 +431,17 @@ function TextareaField({ label, placeholder, defaultValue, rows = 3 }: { label: 
   );
 }
 
-function ToneCard({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
+function ToneCard({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
   return (
-    <button className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all relative ${
-      active 
-        ? 'border-[#25D366] bg-[#25D366]/5 text-[#075E54]' 
-        : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
-    }`}>
+    <button 
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all relative cursor-pointer ${
+        active 
+          ? 'border-[#25D366] bg-[#25D366]/5 text-[#075E54]' 
+          : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
+      }`}
+    >
       {active && (
         <div className="absolute top-2 right-2 text-[#25D366]">
           <CheckCircle2 className="w-4 h-4" />
@@ -232,11 +455,15 @@ function ToneCard({ icon, label, active = false }: { icon: React.ReactNode, labe
   );
 }
 
-function HashtagChip({ label }: { label: string }) {
+function HashtagChip({ label, onDelete }: { label: string, onDelete?: () => void }) {
   return (
     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#128C7E]/10 text-[#128C7E] border border-[#128C7E]/20 rounded-full text-sm font-medium">
       <span>#{label}</span>
-      <button className="hover:text-[#075E54] hover:bg-[#128C7E]/20 rounded-full p-0.5 transition-colors">
+      <button 
+        type="button" 
+        onClick={onDelete}
+        className="hover:text-red-600 hover:bg-[#128C7E]/20 rounded-full p-0.5 transition-colors cursor-pointer"
+      >
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
     </div>

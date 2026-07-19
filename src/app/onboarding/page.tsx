@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 export default function OnboardingWizard() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   // Step 1 States
@@ -27,7 +28,13 @@ export default function OnboardingWizard() {
   const [socials, setSocials] = useState<string[]>([]);
 
   React.useEffect(() => {
-    async function loadUserData() {
+    async function checkAuthAndLoadData() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data } = await supabase
@@ -40,47 +47,49 @@ export default function OnboardingWizard() {
         }
       }
     }
-    loadUserData();
-  }, []);
+    checkAuthAndLoadData();
+  }, [router]);
 
   const handleNext = async () => {
     if (step === 1) {
-      setIsSubmitting(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // Update user's name in public.users
-        await supabase
-          .from('users')
-          .update({ name: name.trim() })
-          .eq('id', user.id);
-
-        if (brandId) {
-          await supabase.from('brands').update({
-            company_name: companyName,
-            website: website,
-            industry: industry,
-          }).eq('id', brandId);
-        } else {
-          const { data, error } = await supabase.from('brands').insert({
-            company_name: companyName,
-            website: website,
-            industry: industry,
-            user_id: user.id
-          }).select().single();
-          
-          if (data) {
-            setBrandId(data.id);
-          }
-        }
+      if (!name.trim()) {
+        setError('Please enter your name.');
+        return;
       }
-      setIsSubmitting(false);
-      setStep(2);
-    } else if (step === 2) {
-      if (brandId && personality) {
-        setIsSubmitting(true);
-        await supabase.from('brands').update({ tone: personality }).eq('id', brandId);
+      setIsSubmitting(true);
+      setError('');
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+
+        // Upsert user's profile in public.users (since it might not exist yet)
+        const { error: upsertError } = await supabase
+          .from('users')
+          .upsert({ 
+            id: user.id,
+            name: name.trim(),
+            email: user.email
+          });
+
+        if (upsertError) {
+          throw upsertError;
+        }
+
+        setStep(2);
+      } catch (err: any) {
+        setError(err.message || 'An error occurred while saving your profile.');
+      } finally {
         setIsSubmitting(false);
       }
+    } else if (step === 2) {
+      if (!personality) {
+        setError('Please select a brand personality.');
+        return;
+      }
+      setError('');
       setStep(3);
     } else if (step === 3) {
       setStep(4);
@@ -90,23 +99,84 @@ export default function OnboardingWizard() {
   };
 
   const handleBack = () => {
+    setError('');
     if (step > 1) setStep(step - 1);
   };
 
-  const handleFinish = () => {
-    router.push('/dashboard');
+  const handleFinish = async () => {
+    setIsSubmitting(true);
+    setError('');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
+      // 1. Insert a new row into the "brands" table
+      const { data: brandData, error: brandError } = await supabase
+        .from('brands')
+        .insert({
+          user_id: user.id,
+          company_name: companyName.trim(),
+          website: website.trim() || null,
+          industry: industry || null,
+          tone: personality || null
+        })
+        .select()
+        .single();
+
+      if (brandError) {
+        throw brandError;
+      }
+
+      if (!brandData) {
+        throw new Error('Failed to create brand record.');
+      }
+
+      // 2. Insert a row into "brand_memory" table
+      const { error: memoryError } = await supabase
+        .from('brand_memory')
+        .insert({
+          brand_id: brandData.id,
+          audience: null,
+          hashtags: [],
+          rules: ''
+        });
+
+      if (memoryError) {
+        throw memoryError;
+      }
+
+      // 3. Connect socials (if any)
+      if (socials.length > 0) {
+        const socialInserts = socials.map((platform) => ({
+          brand_id: brandData.id,
+          platform,
+          status: 'pending'
+        }));
+
+        const { error: socialError } = await supabase
+          .from('social_accounts')
+          .insert(socialInserts);
+
+        if (socialError) {
+          throw socialError;
+        }
+      }
+
+      router.push('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'An error occurred while saving your onboarding details.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleConnectSocial = async (platform: string) => {
     if (socials.includes(platform)) return;
     setSocials([...socials, platform]);
-    if (brandId) {
-      await supabase.from('social_accounts').insert({
-        brand_id: brandId,
-        platform: platform,
-        status: 'pending'
-      });
-    }
   };
 
   const steps = [
@@ -159,6 +229,12 @@ export default function OnboardingWizard() {
 
       {/* Main Content Area */}
       <div className="w-full max-w-3xl bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 p-8 sm:p-12 mt-6">
+        
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-sm font-medium">
+            {error}
+          </div>
+        )}
         
         {/* Step 1: Business Info */}
         {step === 1 && (
@@ -387,10 +463,11 @@ export default function OnboardingWizard() {
           ) : (
             <button 
               onClick={handleFinish}
-              className="flex items-center gap-2 px-8 py-3 bg-[#075E54] hover:bg-[#128C7E] text-white rounded-full font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+              disabled={isSubmitting}
+              className="flex items-center gap-2 px-8 py-3 bg-[#075E54] hover:bg-[#128C7E] text-white rounded-full font-bold transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Go to Dashboard
-              <ArrowRight className="w-5 h-5" />
+              {isSubmitting ? 'Saving setup...' : 'Go to Dashboard'}
+              {!isSubmitting && <ArrowRight className="w-5 h-5" />}
             </button>
           )}
         </div>

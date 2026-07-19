@@ -1,4 +1,8 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -48,6 +52,158 @@ const Twitter = ({ className }: { className?: string }) => (
 import Link from 'next/link';
 
 export default function SocialAccountsPage() {
+  const [brandId, setBrandId] = useState<string | null>(null);
+  const [companyName, setCompanyName] = useState('Acme Corp');
+  const [socialAccounts, setSocialAccounts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      setError('');
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          router.push('/login');
+          return;
+        }
+
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+
+        // 1. Find user's brand
+        let { data: brandData, error: brandError } = await supabase
+          .from('brands')
+          .select('id, company_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (brandError) throw brandError;
+
+        if (!brandData) {
+          // Auto-create a fallback brand row for the user so they can proceed
+          const { data: newBrand, error: insertError } = await supabase
+            .from('brands')
+            .insert({
+              user_id: user.id,
+              company_name: 'My Brand',
+              tone: 'Professional'
+            })
+            .select('id, company_name')
+            .single();
+
+          if (insertError) throw insertError;
+          brandData = newBrand;
+        }
+
+        if (brandData) {
+          setBrandId(brandData.id);
+          setCompanyName(brandData.company_name || 'My Brand');
+
+          // 2. Fetch social accounts
+          const { data: socialsData, error: socialsError } = await supabase
+            .from('social_accounts')
+            .select('*')
+            .eq('brand_id', brandData.id);
+
+          if (socialsError) throw socialsError;
+          setSocialAccounts(socialsData || []);
+        }
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch social accounts.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [router]);
+
+  const handleConnect = async (platform: string) => {
+    if (!brandId) return;
+    setActionLoading(platform);
+    setError('');
+
+    try {
+      const existing = socialAccounts.find(acc => acc.platform === platform);
+
+      if (existing) {
+        const { data, error: updateError } = await supabase
+          .from('social_accounts')
+          .update({ status: 'connected' })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        setSocialAccounts(prev => prev.map(acc => acc.id === existing.id ? data : acc));
+      } else {
+        const { data, error: insertError } = await supabase
+          .from('social_accounts')
+          .insert({
+            brand_id: brandId,
+            platform,
+            status: 'connected'
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        if (data) {
+          setSocialAccounts(prev => [...prev, data]);
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || `Failed to connect ${platform}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDisconnect = async (platform: string) => {
+    if (!brandId) return;
+    setActionLoading(platform);
+    setError('');
+
+    try {
+      const existing = socialAccounts.find(acc => acc.platform === platform);
+      if (existing) {
+        const { data, error: updateError } = await supabase
+          .from('social_accounts')
+          .update({ status: 'disconnected' })
+          .eq('id', existing.id)
+          .select()
+          .single();
+
+        if (updateError) throw updateError;
+        setSocialAccounts(prev => prev.map(acc => acc.id === existing.id ? data : acc));
+      }
+    } catch (err: any) {
+      setError(err.message || `Failed to disconnect ${platform}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getStatus = (platformName: string): 'connected' | 'disconnected' => {
+    const acc = socialAccounts.find(a => a.platform === platformName);
+    return acc && acc.status === 'connected' ? 'connected' : 'disconnected';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#ece5dd] flex items-center justify-center">
+        <div className="text-[#075E54] font-bold text-xl animate-pulse">Loading social accounts...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex">
       
@@ -92,36 +248,56 @@ export default function SocialAccountsPage() {
             <p className="text-gray-600 mt-1">Manage your social media account connections and permissions.</p>
           </header>
 
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-600 rounded-2xl text-sm font-medium">
+              {error}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             <PlatformCard 
               name="LinkedIn"
               icon={<Linkedin className="w-8 h-8 text-white" />}
               color="bg-[#0077B5]"
-              status="connected"
-              accountName="Acme Corp (Company Page)"
+              status={getStatus('LinkedIn')}
+              accountName={`${companyName} (Company Page)`}
+              onConnect={() => handleConnect('LinkedIn')}
+              onDisconnect={() => handleDisconnect('LinkedIn')}
+              isLoading={actionLoading === 'LinkedIn'}
             />
 
             <PlatformCard 
               name="Facebook"
               icon={<Facebook className="w-8 h-8 text-white" />}
               color="bg-[#1877F2]"
-              status="connected"
-              accountName="Acme Corp"
+              status={getStatus('Facebook')}
+              accountName={companyName}
+              onConnect={() => handleConnect('Facebook')}
+              onDisconnect={() => handleDisconnect('Facebook')}
+              isLoading={actionLoading === 'Facebook'}
             />
 
             <PlatformCard 
               name="Instagram"
               icon={<Instagram className="w-8 h-8 text-white" />}
               color="bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]"
-              status="disconnected"
+              status={getStatus('Instagram')}
+              accountName={`${companyName} Business`}
+              onConnect={() => handleConnect('Instagram')}
+              onDisconnect={() => handleDisconnect('Instagram')}
+              isLoading={actionLoading === 'Instagram'}
             />
 
             <PlatformCard 
               name="X (Twitter)"
               icon={<Twitter className="w-8 h-8 text-white fill-current" />}
               color="bg-black"
-              status="disconnected"
+              status={getStatus('X (Twitter)')}
+              accountName={`${companyName} Feed`}
+              onConnect={() => handleConnect('X (Twitter)')}
+              onDisconnect={() => handleDisconnect('X (Twitter)')}
+              isLoading={actionLoading === 'X (Twitter)'}
             />
 
           </div>
@@ -146,7 +322,25 @@ function SidebarLink({ icon, label, active = false }: { icon: React.ReactNode, l
   );
 }
 
-function PlatformCard({ name, icon, color, status, accountName }: { name: string, icon: React.ReactNode, color: string, status: 'connected' | 'disconnected', accountName?: string }) {
+function PlatformCard({ 
+  name, 
+  icon, 
+  color, 
+  status, 
+  accountName, 
+  onConnect, 
+  onDisconnect, 
+  isLoading 
+}: { 
+  name: string, 
+  icon: React.ReactNode, 
+  color: string, 
+  status: 'connected' | 'disconnected', 
+  accountName?: string, 
+  onConnect: () => void, 
+  onDisconnect: () => void, 
+  isLoading: boolean 
+}) {
   const isConnected = status === 'connected';
 
   return (
@@ -178,19 +372,30 @@ function PlatformCard({ name, icon, color, status, accountName }: { name: string
       <div className="mt-auto pt-6 border-t border-gray-100 flex items-center gap-3">
         {isConnected ? (
           <>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold rounded-xl text-sm transition-colors border border-gray-200">
+            <button 
+              onClick={onDisconnect}
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 font-semibold rounded-xl text-sm transition-colors border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
               <LogOut className="w-4 h-4" />
-              Disconnect
+              {isLoading ? 'Disconnecting...' : 'Disconnect'}
             </button>
-            <button className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-[#075E54] font-semibold rounded-xl text-sm transition-colors border border-gray-200">
+            <button 
+              disabled={isLoading}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-gray-50 text-[#075E54] font-semibold rounded-xl text-sm transition-colors border border-gray-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
               <RefreshCw className="w-4 h-4" />
               Refresh Token
             </button>
           </>
         ) : (
-          <button className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] hover:bg-[#1DA851] text-white font-bold rounded-xl text-sm transition-colors shadow-sm">
+          <button 
+            onClick={onConnect}
+            disabled={isLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] hover:bg-[#1DA851] text-white font-bold rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
             <LinkIcon className="w-4 h-4" />
-            Connect {name}
+            {isLoading ? 'Connecting...' : `Connect ${name}`}
           </button>
         )}
       </div>

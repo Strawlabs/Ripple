@@ -21,7 +21,8 @@ import {
   Lightbulb,
   Target,
   MessageCircle,
-  CheckCircle2
+  CheckCircle2,
+  LogOut
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -40,6 +41,11 @@ export default function DashboardPage() {
     }
     checkAuth();
   }, [router]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   if (loading) {
     return (
@@ -83,6 +89,19 @@ export default function DashboardPage() {
           <SidebarLink icon={<CreditCard />} label="Billing" />
           <SidebarLink icon={<Settings />} label="Settings" />
         </nav>
+
+        {/* Logout Button */}
+        <div className="p-4 border-t border-gray-100">
+          <button 
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-600 hover:bg-red-50 hover:text-red-600 transition-all font-medium group cursor-pointer border-0 text-left"
+          >
+            <div className="text-gray-400 group-hover:text-red-500 [&>svg]:w-5 [&>svg]:h-5 transition-colors">
+              <LogOut />
+            </div>
+            <span>Log out</span>
+          </button>
+        </div>
       </aside>
 
       {/* Main Content */}

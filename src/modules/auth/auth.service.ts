@@ -17,7 +17,11 @@ export class AuthError extends Error {
  *  2. Enforce BR-AUTH-002 / BR-AUTH-003: WhatsApp number must be unique
  *     and belong to exactly one account (checked here since Supabase
  *     Auth itself doesn't know about our `whatsapp` column).
- *  3. Insert the corresponding row into public.users.
+ *  3. Upsert the corresponding row into public.users. We use upsert
+ *     instead of insert because a DB trigger (added earlier in this
+ *     project) already creates a users row automatically when a new
+ *     Supabase Auth user is created — upsert avoids a duplicate-id
+ *     conflict with that trigger and fills in any fields it left blank.
  *
  * BR-AUTH-001 (unique email) is enforced by Supabase Auth itself plus the
  * UNIQUE constraint on public.users.email.
@@ -51,13 +55,16 @@ export async function registerUser(input: RegisterInput) {
 
   const { data: profile, error: profileError } = await supabaseServer
     .from('users')
-    .insert({
-      id: authData.user.id,
-      name: input.name,
-      email: input.email,
-      whatsapp: input.whatsapp ?? null,
-      role: input.role,
-    })
+    .upsert(
+      {
+        id: authData.user.id,
+        name: input.name,
+        email: input.email,
+        whatsapp: input.whatsapp ?? null,
+        role: input.role,
+      },
+      { onConflict: 'id' }
+    )
     .select()
     .single();
 

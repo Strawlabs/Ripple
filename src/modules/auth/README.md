@@ -11,6 +11,9 @@
   generate content on a brand they don't own just by knowing/guessing
   the ID. Both routes now require a real Supabase session token and
   derive identity/ownership from it instead.
-- **Still open**: apply `requireAuth`/`requireBrandAccess` to the
-  remaining brand-scoped routes (content library, approval workflow,
-  scheduling, analytics) — same pattern, not yet done everywhere.
+- **Done (this session, follow-up)**: `requireAuth`/`requireBrandAccess`
+  now applied to every brand-scoped route: content library, approval
+  workflow (get/edit/approve/reject), scheduling (create/list/reschedule/
+  cancel), analytics, and weekly report. Every route that touches a
+  specific brand's data now verifies the caller owns that brand (or is
+  super_admin) before reading or mutating anything.

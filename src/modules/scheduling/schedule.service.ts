@@ -17,6 +17,23 @@ function assertFutureDate(scheduledAt: string) {
 }
 
 /**
+ * Used by route handlers to check brand ownership before a mutating
+ * operation (reschedule/cancel) on a scheduled post.
+ */
+export async function getScheduleBrandId(id: string): Promise<string> {
+  const { data, error } = await supabaseServer
+    .from('scheduled_posts')
+    .select('content_drafts!inner(brand_id)')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw new ScheduleError('Could not load scheduled post', 500);
+  if (!data) throw new ScheduleError('Scheduled post not found', 404);
+  const brandId = (data as unknown as { content_drafts: { brand_id: string } }).content_drafts.brand_id;
+  return brandId;
+}
+
+/**
  * FEATURE-006 — Scheduling Engine
  *
  * A draft must be 'approved' before it can be scheduled — this keeps

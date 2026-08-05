@@ -21,6 +21,16 @@ async function getDraftOrThrow(id: string) {
   return data;
 }
 
+/**
+ * Used by route handlers to check brand ownership BEFORE calling a
+ * mutating function (edit/approve/reject) — checking ownership only
+ * after the mutation already happened would be too late.
+ */
+export async function getDraftBrandId(id: string): Promise<string> {
+  const draft = await getDraftOrThrow(id);
+  return draft.brand_id;
+}
+
 export async function getDraft(id: string) {
   return getDraftOrThrow(id);
 }

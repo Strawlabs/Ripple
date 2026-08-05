@@ -21,3 +21,8 @@ cleanup -> generation).
 - BR-AI-001: Each platform receives unique formatting — done (prompt-builder.ts)
 - BR-AI-002: Brand Memory must influence generated content — done (content.service.ts)
 - BR-AI-003: Generated content must be editable — pending (needs PATCH endpoint)
+
+## Content Library (FEATURE-008)
+- `library.service.ts` — listContent(): filter by status/platform, keyword search, pagination
+- `GET /api/content/library?brandId=...&status=...&platform=...&search=...&limit=...&offset=...`
+  Only `brandId` is required; everything else is an optional filter.

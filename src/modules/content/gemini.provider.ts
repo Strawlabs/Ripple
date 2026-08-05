@@ -14,7 +14,7 @@ import { GoogleGenAI } from '@google/genai';
 const apiKey = process.env.GEMINI_API_KEY || '';
 const client = new GoogleGenAI({ apiKey });
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3.6-flash';
 
 export async function generateText(prompt: string): Promise<string> {
   if (!apiKey) {

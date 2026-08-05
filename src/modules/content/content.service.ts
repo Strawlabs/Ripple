@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { generateText } from './gemini.provider';
 import { buildPrompt, Platform, BrandContext } from './prompt-builder';
 import type { GenerateContentInput } from '@/validations/content';
+import { createNotification } from '@/modules/notifications/notification.service';
 
 export class ContentError extends Error {
   status: number;
@@ -34,7 +35,7 @@ const PLATFORM_COLUMN: Record<Platform, 'linkedin_content' | 'facebook_content' 
 export async function generateContent(input: GenerateContentInput) {
   const { data: brand, error: brandError } = await supabaseServer
     .from('brands')
-    .select('id, company_name, industry, tone')
+    .select('id, user_id, company_name, industry, tone')
     .eq('id', input.brandId)
     .maybeSingle();
 
@@ -91,6 +92,17 @@ export async function generateContent(input: GenerateContentInput) {
   if (insertError) {
     throw new ContentError('Content generated but could not be saved', 500);
   }
+
+  // Fire-and-forget: FEATURE-012 "Approval Required" notification.
+  // Doesn't block or fail the response if it errors — the draft was
+  // still generated and saved successfully.
+  void createNotification(
+    brand.user_id,
+    'approval_required',
+    'New content ready for review',
+    `New ${input.platforms.join('/')} content was generated for ${brand.company_name} and needs your approval.`,
+    { draftId: draft.id, brandId: brand.id }
+  );
 
   return draft;
 }

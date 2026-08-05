@@ -1,4 +1,5 @@
 import { supabaseServer } from '@/lib/supabase-server';
+import { createNotification } from '@/modules/notifications/notification.service';
 
 export class AnalyticsError extends Error {
   status: number;
@@ -129,4 +130,73 @@ export async function getAnalyticsDashboard(brandId: string) {
     topPosts,
     note: null,
   };
+}
+
+/**
+ * Weekly Reports — one of the notification types in FEATURE-012.
+ *
+ * Reuses getAnalyticsDashboard() but filters published_posts to the
+ * last 7 days, then sends a 'weekly_report' notification to the brand
+ * owner summarizing the numbers. Designed to be called by a weekly cron
+ * job (not built yet — see module README) or manually via the API for
+ * testing/demo purposes.
+ */
+export async function generateWeeklyReport(brandId: string) {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const { data: brand, error: brandError } = await supabaseServer
+    .from('brands')
+    .select('id, user_id, company_name')
+    .eq('id', brandId)
+    .maybeSingle();
+
+  if (brandError) throw new AnalyticsError('Could not load brand', 500);
+  if (!brand) throw new AnalyticsError('Brand not found', 404);
+
+  const { data: posts, error: postsError } = await supabaseServer
+    .from('published_posts')
+    .select('id, platform, published_at, content_drafts!inner(brand_id)')
+    .eq('content_drafts.brand_id', brandId)
+    .gte('published_at', sevenDaysAgo);
+
+  if (postsError) throw new AnalyticsError('Could not load published posts', 500);
+
+  const publishedPosts = (posts ?? []) as unknown as PublishedPostRow[];
+  const postIds = publishedPosts.map((p) => p.id);
+
+  let totals = { reach: 0, impressions: 0, engagement: 0 };
+  if (postIds.length > 0) {
+    const { data: metrics, error: metricsError } = await supabaseServer
+      .from('analytics')
+      .select('reach, impressions, engagement')
+      .in('post_id', postIds);
+
+    if (metricsError) throw new AnalyticsError('Could not load analytics', 500);
+
+    for (const m of (metrics ?? []) as AnalyticsRow[]) {
+      totals = {
+        reach: totals.reach + m.reach,
+        impressions: totals.impressions + m.impressions,
+        engagement: totals.engagement + m.engagement,
+      };
+    }
+  }
+
+  const report = {
+    brandId,
+    periodStart: sevenDaysAgo,
+    periodEnd: new Date().toISOString(),
+    postsPublished: publishedPosts.length,
+    totals,
+  };
+
+  void createNotification(
+    brand.user_id,
+    'weekly_report',
+    `Weekly report for ${brand.company_name}`,
+    `In the last 7 days: ${report.postsPublished} post(s) published, ${totals.reach} reach, ${totals.engagement} engagement.`,
+    report
+  );
+
+  return report;
 }

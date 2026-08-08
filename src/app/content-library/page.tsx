@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
+  Clock,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -138,6 +139,35 @@ export default function ContentLibraryPage() {
     }
   };
 
+  const handleSchedule = async (id: string) => {
+    if (!accessToken) return;
+    const input = window.prompt('Schedule for (YYYY-MM-DD HH:MM, e.g. 2026-09-01 14:30):');
+    if (!input) return;
+
+    const parsed = new Date(input.replace(' ', 'T'));
+    if (isNaN(parsed.getTime())) {
+      setError('Could not understand that date/time. Use YYYY-MM-DD HH:MM.');
+      return;
+    }
+
+    setActioningId(id);
+    try {
+      const res = await fetch('/api/posts/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ draftId: id, scheduledAt: parsed.toISOString() }),
+      });
+      const json = await res.json();
+      if (json.success) fetchLibrary();
+      else setError(json.error?.message ?? 'Could not schedule');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex">
       <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col h-screen sticky top-0">
@@ -243,6 +273,7 @@ export default function ContentLibraryPage() {
                   date={new Date(draft.created_at).toLocaleDateString()}
                   onApprove={() => handleApprove(draft.id)}
                   onReject={() => handleReject(draft.id)}
+                  onSchedule={() => handleSchedule(draft.id)}
                   actioning={actioningId === draft.id}
                 />
               ))
@@ -300,6 +331,7 @@ function ContentCard({
   date,
   onApprove,
   onReject,
+  onSchedule,
   actioning,
 }: {
   status: string;
@@ -309,6 +341,7 @@ function ContentCard({
   date: string;
   onApprove: () => void;
   onReject: () => void;
+  onSchedule: () => void;
   actioning: boolean;
 }) {
   const statusColors: Record<string, string> = {
@@ -350,6 +383,19 @@ function ContentCard({
           >
             {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
             Approve
+          </button>
+        </div>
+      )}
+
+      {status === 'approved' && (
+        <div className="border-t border-gray-100 bg-gray-50">
+          <button
+            onClick={onSchedule}
+            disabled={actioning}
+            className="w-full py-3 flex items-center justify-center gap-1.5 text-[#075E54] hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+            Schedule
           </button>
         </div>
       )}

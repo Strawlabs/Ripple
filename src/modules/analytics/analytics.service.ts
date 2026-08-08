@@ -13,6 +13,11 @@ interface PublishedPostRow {
   id: string;
   platform: string;
   published_at: string;
+  content_drafts: {
+    linkedin_content: string | null;
+    facebook_content: string | null;
+    instagram_content: string | null;
+  };
 }
 
 interface AnalyticsRow {
@@ -50,7 +55,7 @@ export async function getAnalyticsDashboard(brandId: string) {
 
   const { data: posts, error: postsError } = await supabaseServer
     .from('published_posts')
-    .select('id, platform, published_at, content_drafts!inner(brand_id)')
+    .select('id, platform, published_at, content_drafts!inner(brand_id, linkedin_content, facebook_content, instagram_content)')
     .eq('content_drafts.brand_id', brandId);
 
   if (postsError) throw new AnalyticsError('Could not load published posts', 500);
@@ -106,6 +111,11 @@ export async function getAnalyticsDashboard(brandId: string) {
     postsWithMetrics.push({ ...post, ...m });
   }
 
+  const captionFor = (p: PublishedPostRow) => {
+    const key = `${p.platform}_content` as keyof PublishedPostRow['content_drafts'];
+    return p.content_drafts?.[key] ?? null;
+  };
+
   const topPosts = [...postsWithMetrics]
     .sort((a, b) => b.engagement - a.engagement)
     .slice(0, 5)
@@ -116,6 +126,7 @@ export async function getAnalyticsDashboard(brandId: string) {
       reach: p.reach,
       impressions: p.impressions,
       engagement: p.engagement,
+      caption: captionFor(p),
     }));
 
   const platformBreakdown = Array.from(platformTotals.entries()).map(([platform, m]) => ({
@@ -155,7 +166,7 @@ export async function generateWeeklyReport(brandId: string) {
 
   const { data: posts, error: postsError } = await supabaseServer
     .from('published_posts')
-    .select('id, platform, published_at, content_drafts!inner(brand_id)')
+    .select('id, platform, published_at, content_drafts!inner(brand_id, linkedin_content, facebook_content, instagram_content)')
     .eq('content_drafts.brand_id', brandId)
     .gte('published_at', sevenDaysAgo);
 

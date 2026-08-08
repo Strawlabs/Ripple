@@ -66,6 +66,7 @@ export async function getAnalyticsDashboard(brandId: string) {
     return {
       warning: connectedPlatforms.length === 0 ? 'No social accounts connected yet' : null,
       totals: { reach: 0, impressions: 0, engagement: 0 },
+      postsPublished: 0,
       platformBreakdown: [],
       topPosts: [],
       note: 'No published posts yet — metrics will populate once posts go live.',
@@ -137,6 +138,7 @@ export async function getAnalyticsDashboard(brandId: string) {
   return {
     warning: connectedPlatforms.length === 0 ? 'No social accounts connected yet' : null,
     totals,
+    postsPublished: publishedPosts.length,
     platformBreakdown,
     topPosts,
     note: null,

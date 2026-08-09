@@ -239,25 +239,25 @@ export default function BrandMemoryPage() {
         </div>
         
         <nav className="flex-1 px-4 pb-6 space-y-1 overflow-y-auto">
-          <SidebarLink icon={<LayoutDashboard />} label="Dashboard" />
-          <SidebarLink icon={<MessageSquare />} label="Conversations" />
-          <SidebarLink icon={<Library />} label="Content Library" />
-          <SidebarLink icon={<BrainCircuit />} label="Brand Memory" active />
+          <SidebarLink icon={<LayoutDashboard />} label="Dashboard" href="/dashboard" />
+          <SidebarLink icon={<MessageSquare />} label="Conversations" href="/conversations" />
+          <SidebarLink icon={<Library />} label="Content Library" href="/content-library" />
+          <SidebarLink icon={<BrainCircuit />} label="Brand Memory" href="/brand-memory" active />
           <SidebarLink icon={<Share2 />} label="Social Accounts" />
-          <SidebarLink icon={<Calendar />} label="Scheduling" />
-          <SidebarLink icon={<LineChart />} label="Analytics" />
+          <SidebarLink icon={<Calendar />} label="Scheduling" href="/scheduling" />
+          <SidebarLink icon={<LineChart />} label="Analytics" href="/analytics" />
           
           <div className="pt-6 pb-2">
             <p className="px-3 text-xs font-bold uppercase tracking-wider text-gray-400">Advanced</p>
           </div>
-          <SidebarLink icon={<Sparkles />} label="AI Studio" />
+          <SidebarLink icon={<Sparkles />} label="AI Studio" href="/ai-studio" />
           <SidebarLink icon={<Megaphone />} label="Campaigns" />
           
           <div className="pt-6 pb-2">
             <p className="px-3 text-xs font-bold uppercase tracking-wider text-gray-400">Settings</p>
           </div>
-          <SidebarLink icon={<Bell />} label="Notifications" />
-          <SidebarLink icon={<CreditCard />} label="Billing" />
+          <SidebarLink icon={<Bell />} label="Notifications" href="/notifications" />
+          <SidebarLink icon={<CreditCard />} label="Billing" href="/billing" />
           <SidebarLink icon={<Settings />} label="Settings" />
         </nav>
       </aside>
@@ -369,9 +369,9 @@ export default function BrandMemoryPage() {
   );
 }
 
-function SidebarLink({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
-  return (
-    <Link href="#" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
+function SidebarLink({ icon, label, active = false, href = '#' }: { icon: React.ReactNode, label: string, active?: boolean, href?: string }) {
+    return (
+      <Link href={href} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
       active 
         ? 'bg-[#25D366]/10 text-[#075E54] font-bold' 
         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'

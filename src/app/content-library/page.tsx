@@ -19,6 +19,7 @@ import {
   XCircle,
   Loader2,
   Clock,
+  Send,
 } from 'lucide-react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
@@ -168,6 +169,29 @@ export default function ContentLibraryPage() {
     }
   };
 
+  const handlePublish = async (id: string) => {
+    if (!accessToken) return;
+    if (!window.confirm('Publish this post to LinkedIn now? This cannot be undone.')) return;
+
+    setActioningId(id);
+    try {
+      const res = await fetch(`/api/content/drafts/${id}/publish`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) fetchLibrary();
+      else setError(json.error?.message ?? 'Could not publish');
+    } catch {
+      setError('Could not publish');
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#ece5dd] font-sans flex">
       <aside className="w-64 bg-white border-r border-gray-200 hidden md:flex flex-col h-screen sticky top-0">
@@ -274,6 +298,7 @@ export default function ContentLibraryPage() {
                   onApprove={() => handleApprove(draft.id)}
                   onReject={() => handleReject(draft.id)}
                   onSchedule={() => handleSchedule(draft.id)}
+                  onPublish={() => handlePublish(draft.id)}
                   actioning={actioningId === draft.id}
                 />
               ))
@@ -298,9 +323,8 @@ function SidebarLink({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
-        active ? 'bg-[#25D366]/10 text-[#075E54] font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-      }`}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${active ? 'bg-[#25D366]/10 text-[#075E54] font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+        }`}
     >
       <div className={`${active ? 'text-[#25D366]' : 'text-gray-400 group-hover:text-gray-600'} [&>svg]:w-5 [&>svg]:h-5`}>
         {icon}
@@ -314,9 +338,8 @@ function FilterTab({ label, active = false, onClick }: { label: string; active?:
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${
-        active ? 'bg-[#075E54] text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-      }`}
+      className={`px-4 py-2 rounded-full text-sm font-semibold whitespace-nowrap transition-all ${active ? 'bg-[#075E54] text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+        }`}
     >
       {label}
     </button>
@@ -332,6 +355,7 @@ function ContentCard({
   onApprove,
   onReject,
   onSchedule,
+  onPublish,
   actioning,
 }: {
   status: string;
@@ -342,12 +366,14 @@ function ContentCard({
   onApprove: () => void;
   onReject: () => void;
   onSchedule: () => void;
+  onPublish: () => void;
   actioning: boolean;
 }) {
   const statusColors: Record<string, string> = {
     draft: 'bg-gray-100 text-gray-600 border-gray-200',
     approved: 'bg-green-50 text-green-700 border-green-200',
     rejected: 'bg-red-50 text-red-700 border-red-200',
+    published: 'bg-blue-50 text-blue-700 border-blue-200',
   };
 
   return (
@@ -388,14 +414,22 @@ function ContentCard({
       )}
 
       {status === 'approved' && (
-        <div className="border-t border-gray-100 bg-gray-50">
+        <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50 divide-x divide-gray-100">
           <button
             onClick={onSchedule}
             disabled={actioning}
-            className="w-full py-3 flex items-center justify-center gap-1.5 text-[#075E54] hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
+            className="py-3 flex items-center justify-center gap-1.5 text-[#075E54] hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
           >
             {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
             Schedule
+          </button>
+          <button
+            onClick={onPublish}
+            disabled={actioning}
+            className="py-3 flex items-center justify-center gap-1.5 text-blue-600 hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            Publish Now
           </button>
         </div>
       )}

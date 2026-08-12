@@ -1,8 +1,18 @@
 import { supabaseServer } from '@/lib/supabase-server';
 
+export interface DownloadedMedia {
+    publicUrl: string;
+    buffer: ArrayBuffer;
+}
+
 /**
  * BR-WA-002 — download WhatsApp media (image/audio/document) from Meta
  * and store it in Supabase Storage, returning a public URL.
+ *
+ * Also returns the raw buffer (in addition to the storage URL) so
+ * callers that need the bytes directly — e.g. Voice-to-Post sending
+ * audio bytes to Gemini for transcription — don't have to re-download
+ * the file a second time.
  *
  * Meta's media flow is two-step:
  *  1. GET /{media-id} with the access token returns a temporary,
@@ -13,7 +23,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 export async function downloadAndStoreWhatsAppMedia(
     mediaId: string,
     mimeType: string | null
-): Promise<string | null> {
+): Promise<DownloadedMedia | null> {
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     if (!accessToken) {
         console.error('Missing WHATSAPP_ACCESS_TOKEN, cannot download media');
@@ -73,7 +83,7 @@ export async function downloadAndStoreWhatsAppMedia(
             .from('whatsapp-media')
             .getPublicUrl(fileName);
 
-        return publicUrlData.publicUrl;
+        return { publicUrl: publicUrlData.publicUrl, buffer: fileBuffer };
     } catch (err) {
         console.error('Unexpected error downloading/storing WhatsApp media:', err);
         return null;

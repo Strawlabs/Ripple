@@ -10,10 +10,8 @@ import { GoogleGenAI } from '@google/genai';
  * adapter with the same `generateText(prompt: string): Promise<string>`
  * shape and swap it in from content.service.ts — no other file changes.
  */
-
 const apiKey = process.env.GEMINI_API_KEY || '';
 const client = new GoogleGenAI({ apiKey });
-
 const MODEL = 'gemini-3.6-flash';
 
 export async function generateText(prompt: string): Promise<string> {
@@ -29,6 +27,40 @@ export async function generateText(prompt: string): Promise<string> {
   const text = response.text;
   if (!text) {
     throw new Error('Gemini returned an empty response');
+  }
+  return text.trim();
+}
+
+/**
+ * FEATURE-010 — Voice-to-Post
+ * Transcribes a WhatsApp voice note (audio bytes) to plain text using
+ * Gemini's multimodal input support. mimeType should match what Meta
+ * sent (e.g. "audio/ogg; codecs=opus" — Gemini accepts the codecs
+ * suffix as part of the mime type string).
+ */
+export async function transcribeAudio(audioBuffer: ArrayBuffer, mimeType: string): Promise<string> {
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not configured');
+  }
+
+  const base64Audio = Buffer.from(audioBuffer).toString('base64');
+
+  const response = await client.models.generateContent({
+    model: MODEL,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: 'Transcribe this audio message to plain text. Reply with ONLY the transcription, no commentary or extra formatting.' },
+          { inlineData: { mimeType, data: base64Audio } },
+        ],
+      },
+    ],
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error('Gemini returned an empty transcription');
   }
   return text.trim();
 }

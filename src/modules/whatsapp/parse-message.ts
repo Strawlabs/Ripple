@@ -1,14 +1,9 @@
-/**
- * Meta sends a fairly deeply nested payload. This extracts just what
- * Ripple needs: who sent it, what kind of message it is, and the
- * content (text body, or a media id for image/audio/document).
- */
-
 export interface ParsedMessage {
-  from: string; // WhatsApp number, e.g. "919876543210" (no +)
+  from: string;
   type: 'text' | 'image' | 'audio' | 'document' | 'unsupported';
   text: string | null;
   mediaId: string | null;
+  mimeType: string | null;
 }
 
 interface MetaMessage {
@@ -37,15 +32,15 @@ export function parseIncomingMessages(body: MetaWebhookBody): ParsedMessage[] {
   return messages.map((m) => {
     switch (m.type) {
       case 'text':
-        return { from: m.from, type: 'text', text: m.text?.body ?? null, mediaId: null };
+        return { from: m.from, type: 'text', text: m.text?.body ?? null, mediaId: null, mimeType: null };
       case 'image':
-        return { from: m.from, type: 'image', text: null, mediaId: m.image?.id ?? null };
+        return { from: m.from, type: 'image', text: null, mediaId: m.image?.id ?? null, mimeType: m.image?.mime_type ?? null };
       case 'audio':
-        return { from: m.from, type: 'audio', text: null, mediaId: m.audio?.id ?? null };
+        return { from: m.from, type: 'audio', text: null, mediaId: m.audio?.id ?? null, mimeType: m.audio?.mime_type ?? null };
       case 'document':
-        return { from: m.from, type: 'document', text: null, mediaId: m.document?.id ?? null };
+        return { from: m.from, type: 'document', text: null, mediaId: m.document?.id ?? null, mimeType: m.document?.mime_type ?? null };
       default:
-        return { from: m.from, type: 'unsupported', text: null, mediaId: null };
+        return { from: m.from, type: 'unsupported', text: null, mediaId: null, mimeType: null };
     }
   });
 }

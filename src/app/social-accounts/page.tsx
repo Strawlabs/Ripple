@@ -131,6 +131,10 @@ export default function SocialAccountsPage() {
       window.location.href = `/api/auth/linkedin/connect?brandId=${brandId}`;
       return;
     }
+    if (platform === 'Facebook') {
+      window.location.href = `/api/auth/facebook/connect?brandId=${brandId}`;
+      return;
+    }
     setActionLoading(platform);
     setError('');
 

@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { sendWhatsAppText } from './whatsapp-client';
 import { detectContentRequest } from './detect-intent';
 import { generateContent } from '@/modules/content/content.service';
+import { downloadAndStoreWhatsAppMedia } from './media-storage';
 import type { ParsedMessage } from './parse-message';
 
 /**
@@ -72,12 +73,18 @@ export async function handleIncomingMessage(message: ParsedMessage): Promise<voi
 
   if (message.type !== 'text') {
     // BR-WA-002: Media files must be stored.
-    // NOTE: this currently records that media arrived (id + type) but
-    // does NOT yet download the binary from Meta and upload it to
-    // Supabase Storage — that's the next step for this module (see
-    // README). Recording the event is still useful for conversation
-    // history (BR-WA-003) in the meantime.
-    await saveConversation(brandId, message.from, message.type, message.mediaId);
+    // Download the actual binary from Meta and upload it to Supabase
+    // Storage, then store the resulting public URL (not the raw media
+    // id) so it can be viewed/used later (e.g. Voice-to-Post).
+    let storedUrl: string | null = null;
+    if (message.mediaId) {
+      storedUrl = await downloadAndStoreWhatsAppMedia(message.mediaId, message.mimeType);
+      if (!storedUrl) {
+        console.error(`Failed to download/store media ${message.mediaId} for ${message.type} message`);
+      }
+    }
+
+    await saveConversation(brandId, message.from, message.type, storedUrl ?? message.mediaId);
     await sendWhatsAppText(
       message.from,
       `Got your ${message.type}! Full ${message.type} processing (like turning a voice note into a post) is coming soon — for now, try sending a text like "Create a LinkedIn post about <topic>".`

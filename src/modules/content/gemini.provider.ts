@@ -15,9 +15,14 @@ const client = new GoogleGenAI({ apiKey });
 const MODEL = 'gemini-3.6-flash';
 // gemini-3.x models have a known Google-side bug returning 500 INTERNAL
 // for ANY audio input (reported upstream: googleapis/python-genai#2714).
-// Text generation is unaffected, so only audio transcription uses an
-// older, stable multimodal model instead.
-const AUDIO_MODEL = 'gemini-2.0-flash';
+// Text generation is unaffected, so only audio transcription avoids it.
+//
+// Model availability has been shifting fast in this environment
+// (gemini-2.5-flash deprecated for new users, then gemini-2.0-flash
+// also stopped being available shortly after) — so instead of hardcoding
+// one audio model, try a short list in order and fall back automatically
+// if one is deprecated (404) or hits the known 3.x audio bug (500).
+const AUDIO_MODEL_CANDIDATES = ['gemini-3.5-flash', 'gemini-2.0-flash', 'gemini-2.5-flash'];
 
 export async function generateText(prompt: string): Promise<string> {
   if (!apiKey) {
@@ -54,22 +59,40 @@ export async function transcribeAudio(audioBuffer: ArrayBuffer, mimeType: string
   // any parameters after the semicolon.
   const cleanMimeType = mimeType.split(';')[0].trim();
 
-  const response = await client.models.generateContent({
-    model: AUDIO_MODEL,
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: 'Transcribe this audio message to plain text. Reply with ONLY the transcription, no commentary or extra formatting.' },
-          { inlineData: { mimeType: cleanMimeType, data: base64Audio } },
-        ],
-      },
-    ],
-  });
+  const response = await tryModelsInOrder(cleanMimeType, base64Audio);
 
   const text = response.text;
   if (!text) {
     throw new Error('Gemini returned an empty transcription');
   }
   return text.trim();
+}
+
+async function tryModelsInOrder(mimeType: string, base64Audio: string) {
+  let lastError: unknown;
+
+  for (const model of AUDIO_MODEL_CANDIDATES) {
+    try {
+      return await client.models.generateContent({
+        model,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: 'Transcribe this audio message to plain text. Reply with ONLY the transcription, no commentary or extra formatting.' },
+              { inlineData: { mimeType, data: base64Audio } },
+            ],
+          },
+        ],
+      });
+    } catch (err) {
+      console.error(`Audio transcription failed with model '${model}':`, err);
+      lastError = err;
+      // Try the next candidate — this error could mean the model was
+      // deprecated (404) or hit the known 3.x audio bug (500); either
+      // way, the next model in the list might work.
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error('All audio transcription models failed');
 }

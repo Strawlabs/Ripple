@@ -5,24 +5,23 @@ and the social publishing engine (LinkedIn + Facebook for MVP).
 
 ## Done — Approval Workflow (FEATURE-004)
 - `approval.service.ts` — getDraft, editDraft, approveDraft, rejectDraft
-- `GET /api/content/drafts/:id` — preview a draft
-- `PATCH /api/content/drafts/:id` — edit content fields (only while status = 'draft')
-- `POST /api/content/drafts/:id/approve` — approve (blocks re-approval, blocks approving a rejected draft)
-- `POST /api/content/drafts/:id/reject` — reject (blocks rejecting an already-approved draft)
+- `GET /api/content/drafts/:id`, `PATCH`, `POST /approve`, `POST /reject`
 
-## Next steps (checklist Section 8)
-- LinkedIn publishing adapter
-- Facebook publishing adapter
-- Track publish status: Published / Failed (BR-PUB-002)
-- Retry logic for failed posts (BR-PUB-003)
-- Expired token -> re-auth flow
-- IMPORTANT: the publish endpoint MUST check `content_drafts.status === 'approved'`
-  before posting anywhere — this is BR-APR-001, the whole reason the
-  approval workflow exists.
+## Done — Publishing (FEATURE-005)
+- `linkedin-publish.service.ts` — publishToLinkedIn(), tested live (real post confirmed on LinkedIn)
+- `facebook-publish.service.ts` — publishToFacebook(), same pattern as LinkedIn (posts to a Page via /feed, not a personal profile)
+- `POST /api/content/drafts/:id/publish` with `{ platform: 'linkedin' | 'facebook' }` in the body — dispatches to the right service
+- Both: BR-APR-001 gate (must be 'approved'), insert into `published_posts` on success (this is what Analytics/Dashboard read), fire `publish_success`/`publish_failure` notifications
+- Content Library's Publish Now button hides itself for Instagram cards (no adapter for that platform — not in MVP scope per PRD)
+
+## Next steps
+- Retry logic beyond "click Publish Now again" (BR-PUB-003) — currently manual retry via the same button, no automated retry/backoff
+- Expired token -> re-auth flow: Facebook's 401/code-190 case is detected and message says "reconnect", but there's no in-app prompt/redirect yet, just the error text
+- Instagram publishing adapter (Phase 2 per PRD — not MVP scope)
 
 ## Business rules
-- BR-APR-001: Nothing can publish without approval — done, enforced by the state machine above
-- BR-APR-002: User may request edits before approval — done (PATCH endpoint, only while status='draft')
-- BR-PUB-001: Platform account must be connected
-- BR-PUB-002: Publishing status must be tracked
-- BR-PUB-003: Failed posts must be retriable
+- BR-APR-001: Nothing can publish without approval — done
+- BR-APR-002: User may request edits before approval — done
+- BR-PUB-001: Platform account must be connected — done (checked before every publish attempt)
+- BR-PUB-002: Publishing status must be tracked — done (content_drafts.status + published_posts row)
+- BR-PUB-003: Failed posts must be retriable — partial (can re-click Publish Now; no automated retry queue)

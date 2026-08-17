@@ -44,6 +44,10 @@ export async function transcribeAudio(audioBuffer: ArrayBuffer, mimeType: string
   }
 
   const base64Audio = Buffer.from(audioBuffer).toString('base64');
+  // WhatsApp sends mime types like "audio/ogg; codecs=opus" — Gemini's
+  // inlineData.mimeType expects a bare type like "audio/ogg", so strip
+  // any parameters after the semicolon.
+  const cleanMimeType = mimeType.split(';')[0].trim();
 
   const response = await client.models.generateContent({
     model: MODEL,
@@ -52,7 +56,7 @@ export async function transcribeAudio(audioBuffer: ArrayBuffer, mimeType: string
         role: 'user',
         parts: [
           { text: 'Transcribe this audio message to plain text. Reply with ONLY the transcription, no commentary or extra formatting.' },
-          { inlineData: { mimeType, data: base64Audio } },
+          { inlineData: { mimeType: cleanMimeType, data: base64Audio } },
         ],
       },
     ],

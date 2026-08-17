@@ -13,6 +13,11 @@ import { GoogleGenAI } from '@google/genai';
 const apiKey = process.env.GEMINI_API_KEY || '';
 const client = new GoogleGenAI({ apiKey });
 const MODEL = 'gemini-3.6-flash';
+// gemini-3.x models have a known Google-side bug returning 500 INTERNAL
+// for ANY audio input (reported upstream: googleapis/python-genai#2714).
+// Text generation is unaffected, so only audio transcription uses an
+// older, stable multimodal model instead.
+const AUDIO_MODEL = 'gemini-2.0-flash';
 
 export async function generateText(prompt: string): Promise<string> {
   if (!apiKey) {
@@ -50,7 +55,7 @@ export async function transcribeAudio(audioBuffer: ArrayBuffer, mimeType: string
   const cleanMimeType = mimeType.split(';')[0].trim();
 
   const response = await client.models.generateContent({
-    model: MODEL,
+    model: AUDIO_MODEL,
     contents: [
       {
         role: 'user',

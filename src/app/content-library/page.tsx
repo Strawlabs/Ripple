@@ -169,9 +169,9 @@ export default function ContentLibraryPage() {
     }
   };
 
-  const handlePublish = async (id: string) => {
+  const handlePublish = async (id: string, platform: 'linkedin' | 'facebook') => {
     if (!accessToken) return;
-    if (!window.confirm('Publish this post to LinkedIn now? This cannot be undone.')) return;
+    if (!window.confirm(`Publish this post to ${platform === 'linkedin' ? 'LinkedIn' : 'Facebook'} now? This cannot be undone.`)) return;
 
     setActioningId(id);
     try {
@@ -181,6 +181,7 @@ export default function ContentLibraryPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
+        body: JSON.stringify({ platform }),
       });
       const json = await res.json();
       if (json.success) fetchLibrary();
@@ -287,21 +288,25 @@ export default function ContentLibraryPage() {
           {drafts.flatMap((draft) =>
             Object.entries(PLATFORM_META)
               .filter(([key]) => draft[key as keyof DraftRow])
-              .map(([key, meta]) => (
-                <ContentCard
-                  key={`${draft.id}-${key}`}
-                  status={draft.status}
-                  platform={meta.label}
-                  platformColor={meta.color}
-                  caption={draft[key as keyof DraftRow] as string}
-                  date={new Date(draft.created_at).toLocaleDateString()}
-                  onApprove={() => handleApprove(draft.id)}
-                  onReject={() => handleReject(draft.id)}
-                  onSchedule={() => handleSchedule(draft.id)}
-                  onPublish={() => handlePublish(draft.id)}
-                  actioning={actioningId === draft.id}
-                />
-              ))
+              .map(([key, meta]) => {
+                const platformSlug = key === 'linkedin_content' ? 'linkedin' : key === 'facebook_content' ? 'facebook' : null;
+                return (
+                  <ContentCard
+                    key={`${draft.id}-${key}`}
+                    status={draft.status}
+                    platform={meta.label}
+                    platformColor={meta.color}
+                    caption={draft[key as keyof DraftRow] as string}
+                    date={new Date(draft.created_at).toLocaleDateString()}
+                    onApprove={() => handleApprove(draft.id)}
+                    onReject={() => handleReject(draft.id)}
+                    onSchedule={() => handleSchedule(draft.id)}
+                    onPublish={() => platformSlug && handlePublish(draft.id, platformSlug)}
+                    canPublish={platformSlug !== null}
+                    actioning={actioningId === draft.id}
+                  />
+                );
+              })
           )}
         </div>
       </main>
@@ -356,6 +361,7 @@ function ContentCard({
   onReject,
   onSchedule,
   onPublish,
+  canPublish,
   actioning,
 }: {
   status: string;
@@ -367,6 +373,7 @@ function ContentCard({
   onReject: () => void;
   onSchedule: () => void;
   onPublish: () => void;
+  canPublish: boolean;
   actioning: boolean;
 }) {
   const statusColors: Record<string, string> = {
@@ -413,7 +420,7 @@ function ContentCard({
         </div>
       )}
 
-      {status === 'approved' && (
+      {status === 'approved' && canPublish && (
         <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50 divide-x divide-gray-100">
           <button
             onClick={onSchedule}
@@ -431,6 +438,20 @@ function ContentCard({
             {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             Publish Now
           </button>
+        </div>
+      )}
+
+      {status === 'approved' && !canPublish && (
+        <div className="border-t border-gray-100 bg-gray-50">
+          <button
+            onClick={onSchedule}
+            disabled={actioning}
+            className="w-full py-3 flex items-center justify-center gap-1.5 text-[#075E54] hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
+          >
+            {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+            Schedule
+          </button>
+          <p className="text-[10px] text-gray-400 text-center pb-2">Direct publishing not yet available for {platform}</p>
         </div>
       )}
     </div>

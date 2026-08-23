@@ -12,8 +12,9 @@
 
 ## Not wired yet (needs the feature that would trigger them)
 - `publish_success` / `publish_failure` — needs FEATURE-005 (Publishing) to exist first
-- `schedule_reminder` — needs a scheduled job (cron/BullMQ) that checks
-  upcoming scheduled_posts and fires a reminder before scheduled_at
+- `schedule_reminder` — done (this session): `send-reminders.ts` +
+  `POST /api/cron/send-reminders`, fires ~15 min before scheduled_at,
+  uses the notifications table itself to avoid double-sending
 
 ## Weekly Report automation
 `GET /api/analytics/weekly-report?brandId=...` computes the last 7 days

@@ -31,6 +31,7 @@ interface DraftRow {
   linkedin_content: string | null;
   facebook_content: string | null;
   instagram_content: string | null;
+  twitter_content: string | null;
   status: string;
   created_at: string;
 }
@@ -39,6 +40,7 @@ const PLATFORM_META: Record<string, { label: string; color: string }> = {
   linkedin_content: { label: 'LinkedIn', color: 'bg-[#0077B5]' },
   facebook_content: { label: 'Facebook', color: 'bg-[#1877F2]' },
   instagram_content: { label: 'Instagram', color: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]' },
+  twitter_content: { label: 'X', color: 'bg-black' },
 };
 
 export default function ContentLibraryPage() {
@@ -169,9 +171,10 @@ export default function ContentLibraryPage() {
     }
   };
 
-  const handlePublish = async (id: string, platform: 'linkedin' | 'facebook') => {
+  const handlePublish = async (id: string, platform: 'linkedin' | 'facebook' | 'twitter') => {
     if (!accessToken) return;
-    if (!window.confirm(`Publish this post to ${platform === 'linkedin' ? 'LinkedIn' : 'Facebook'} now? This cannot be undone.`)) return;
+    const platformLabel = platform === 'linkedin' ? 'LinkedIn' : platform === 'facebook' ? 'Facebook' : 'X';
+    if (!window.confirm(`Publish this post to ${platformLabel} now? This cannot be undone.`)) return;
 
     setActioningId(id);
     try {
@@ -289,7 +292,7 @@ export default function ContentLibraryPage() {
             Object.entries(PLATFORM_META)
               .filter(([key]) => draft[key as keyof DraftRow])
               .map(([key, meta]) => {
-                const platformSlug = key === 'linkedin_content' ? 'linkedin' : key === 'facebook_content' ? 'facebook' : null;
+                const platformSlug = key === 'linkedin_content' ? 'linkedin' : key === 'facebook_content' ? 'facebook' : key === 'twitter_content' ? 'twitter' : null;
                 return (
                   <ContentCard
                     key={`${draft.id}-${key}`}

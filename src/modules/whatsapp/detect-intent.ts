@@ -9,6 +9,10 @@ const PLATFORM_WORDS: Record<string, Platform> = {
   linkedin: 'linkedin',
   facebook: 'facebook',
   instagram: 'instagram',
+  twitter: 'twitter',
+  // "X" alone is too short/common to word-match safely (it appears inside
+  // ordinary sentences), so only the explicit product names are matched.
+  tweet: 'twitter',
 };
 
 /**

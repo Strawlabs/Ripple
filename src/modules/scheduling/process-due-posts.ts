@@ -1,6 +1,7 @@
 import { supabaseServer } from '@/lib/supabase-server';
 import { publishToLinkedIn } from '@/modules/publishing/linkedin-publish.service';
 import { publishToFacebook } from '@/modules/publishing/facebook-publish.service';
+import { publishToTwitter } from '@/modules/publishing/twitter-publish.service';
 
 export interface ProcessResult {
     scheduledPostId: string;
@@ -31,7 +32,7 @@ export interface ProcessResult {
 export async function processDuePosts(): Promise<ProcessResult[]> {
     const { data: duePosts, error } = await supabaseServer
         .from('scheduled_posts')
-        .select('id, draft_id, content_drafts!inner(linkedin_content, facebook_content)')
+        .select('id, draft_id, content_drafts!inner(linkedin_content, facebook_content, twitter_content)')
         .eq('status', 'pending')
         .lte('scheduled_at', new Date().toISOString());
 
@@ -46,7 +47,7 @@ export async function processDuePosts(): Promise<ProcessResult[]> {
     for (const post of duePosts as unknown as Array<{
         id: string;
         draft_id: string;
-        content_drafts: { linkedin_content: string | null; facebook_content: string | null };
+        content_drafts: { linkedin_content: string | null; facebook_content: string | null; twitter_content: string | null };
     }>) {
         const result: ProcessResult = {
             scheduledPostId: post.id,
@@ -73,6 +74,16 @@ export async function processDuePosts(): Promise<ProcessResult[]> {
                 result.succeeded.push('facebook');
             } catch (err) {
                 result.failed.push({ platform: 'facebook', error: err instanceof Error ? err.message : String(err) });
+            }
+        }
+
+        if (post.content_drafts.twitter_content) {
+            result.attempted.push('twitter');
+            try {
+                await publishToTwitter(post.draft_id);
+                result.succeeded.push('twitter');
+            } catch (err) {
+                result.failed.push({ platform: 'twitter', error: err instanceof Error ? err.message : String(err) });
             }
         }
 

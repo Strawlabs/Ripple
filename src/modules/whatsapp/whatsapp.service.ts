@@ -2,6 +2,7 @@ import { supabaseServer } from '@/lib/supabase-server';
 import { sendWhatsAppText } from './whatsapp-client';
 import { detectContentRequest } from './detect-intent';
 import { generateContent } from '@/modules/content/content.service';
+import type { Platform } from '@/modules/content/prompt-builder';
 import { transcribeAudio } from '@/modules/content/gemini.provider';
 import { downloadAndStoreWhatsAppMedia } from './media-storage';
 import type { ParsedMessage } from './parse-message';
@@ -67,7 +68,7 @@ async function generateAndReplyWithDraft(
   brandId: string,
   from: string,
   topic: string,
-  platform: 'linkedin' | 'facebook' | 'instagram'
+  platform: Platform
 ) {
   const draft = await generateContent({
     brandId,

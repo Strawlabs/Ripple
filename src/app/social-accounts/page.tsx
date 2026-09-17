@@ -135,6 +135,10 @@ export default function SocialAccountsPage() {
       window.location.href = `/api/auth/facebook/connect?brandId=${brandId}`;
       return;
     }
+    if (platform === 'Twitter') {
+      window.location.href = `/api/auth/twitter/connect?brandId=${brandId}`;
+      return;
+    }
     setActionLoading(platform);
     setError('');
 
@@ -301,11 +305,11 @@ export default function SocialAccountsPage() {
               name="X (Twitter)"
               icon={<Twitter className="w-8 h-8 text-white fill-current" />}
               color="bg-black"
-              status={getStatus('X (Twitter)')}
+              status={getStatus('Twitter')}
               accountName={`${companyName} Feed`}
-              onConnect={() => handleConnect('X (Twitter)')}
-              onDisconnect={() => handleDisconnect('X (Twitter)')}
-              isLoading={actionLoading === 'X (Twitter)'}
+              onConnect={() => handleConnect('Twitter')}
+              onDisconnect={() => handleDisconnect('Twitter')}
+              isLoading={actionLoading === 'Twitter'}
             />
 
           </div>

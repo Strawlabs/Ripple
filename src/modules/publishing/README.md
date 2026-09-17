@@ -10,7 +10,8 @@ and the social publishing engine (LinkedIn + Facebook for MVP).
 ## Done — Publishing (FEATURE-005)
 - `linkedin-publish.service.ts` — publishToLinkedIn(), tested live (real post confirmed on LinkedIn)
 - `facebook-publish.service.ts` — publishToFacebook(), same pattern as LinkedIn (posts to a Page via /feed, not a personal profile)
-- `POST /api/content/drafts/:id/publish` with `{ platform: 'linkedin' | 'facebook' }` in the body — dispatches to the right service
+- `twitter-publish.service.ts` — publishToTwitter(), posts via X API v2 /2/tweets. Enforces the 280-char limit before calling the API so the user gets a clear message instead of an opaque rejection.
+- `POST /api/content/drafts/:id/publish` with `{ platform: 'linkedin' | 'facebook' | 'twitter' }` in the body — dispatches to the right service
 - Both: BR-APR-001 gate (must be 'approved'), insert into `published_posts` on success (this is what Analytics/Dashboard read), fire `publish_success`/`publish_failure` notifications
 - Content Library's Publish Now button hides itself for Instagram cards (no adapter for that platform — not in MVP scope per PRD)
 
@@ -18,6 +19,12 @@ and the social publishing engine (LinkedIn + Facebook for MVP).
 - Retry logic beyond "click Publish Now again" (BR-PUB-003) — currently manual retry via the same button, no automated retry/backoff
 - Expired token -> re-auth flow: Facebook's 401/code-190 case is detected and message says "reconnect", but there's no in-app prompt/redirect yet, just the error text
 - Instagram publishing adapter (Phase 2 per PRD — not MVP scope)
+- **X token refresh**: X access tokens expire in ~2 hours. The refresh
+  token IS saved at connect time, but automatic refresh is not
+  implemented — a 401 currently surfaces as "reconnect X" guidance.
+  This means an X connection goes stale after a couple of hours and
+  needs a manual reconnect. Implementing refresh is the next step for
+  this adapter.
 
 ## Business rules
 - BR-APR-001: Nothing can publish without approval — done

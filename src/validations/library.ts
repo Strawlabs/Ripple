@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const libraryQuerySchema = z.object({
   brandId: z.string().uuid('brandId must be a valid UUID'),
   status: z.enum(['draft', 'approved', 'rejected']).optional(),
-  platform: z.enum(['linkedin', 'facebook', 'instagram']).optional(),
+  platform: z.enum(['linkedin', 'facebook', 'instagram', 'twitter']).optional(),
   search: z.string().trim().min(1).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),

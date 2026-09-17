@@ -25,13 +25,13 @@ import {
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-type BackendPlatform = 'linkedin' | 'facebook' | 'instagram';
+type BackendPlatform = 'linkedin' | 'facebook' | 'instagram' | 'twitter';
 
 const PLATFORM_OPTIONS: { label: string; value: BackendPlatform | null; color: string }[] = [
   { label: 'LinkedIn', value: 'linkedin', color: 'bg-[#0077B5]' },
   { label: 'Facebook', value: 'facebook', color: 'bg-[#1877F2]' },
   { label: 'Instagram', value: 'instagram', color: 'bg-gradient-to-br from-purple-500 to-pink-500' },
-  { label: 'X (Twitter)', value: null, color: 'bg-black' }, // Phase 2 -- no backend adapter yet
+  { label: 'X (Twitter)', value: 'twitter', color: 'bg-black' },
 ];
 
 interface Draft {
@@ -39,6 +39,7 @@ interface Draft {
   linkedin_content: string | null;
   facebook_content: string | null;
   instagram_content: string | null;
+  twitter_content: string | null;
   status: string;
 }
 

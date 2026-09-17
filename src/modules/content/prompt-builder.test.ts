@@ -25,6 +25,13 @@ describe('buildPrompt — BR-AI-001 (unique formatting per platform)', () => {
     expect(buildPrompt('linkedin', 'x', brand)).toContain('LinkedIn');
     expect(buildPrompt('facebook', 'x', brand)).toContain('Facebook');
     expect(buildPrompt('instagram', 'x', brand)).toContain('Instagram');
+    expect(buildPrompt('twitter', 'x', brand)).toContain('X');
+  });
+
+  it('tells the model about the 280-character limit for X', () => {
+    // The hard limit is enforced again at publish time, but the prompt
+    // should try to keep the model inside it in the first place.
+    expect(buildPrompt('twitter', 'Product launch', brand)).toContain('280');
   });
 });
 

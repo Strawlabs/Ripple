@@ -13,6 +13,7 @@ const PLATFORM_COLUMN: Record<string, string> = {
   linkedin: 'linkedin_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
+  twitter: 'twitter_content',
 };
 
 /**
@@ -47,7 +48,7 @@ export async function listContent(query: LibraryQuery) {
   if (query.search) {
     const term = `%${query.search}%`;
     builder = builder.or(
-      `linkedin_content.ilike.${term},facebook_content.ilike.${term},instagram_content.ilike.${term}`
+      `linkedin_content.ilike.${term},facebook_content.ilike.${term},instagram_content.ilike.${term},twitter_content.ilike.${term}`
     );
   }
 

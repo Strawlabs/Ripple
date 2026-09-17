@@ -22,11 +22,20 @@ describe('generateContentSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects an unsupported platform', () => {
+  it('accepts twitter as a platform', () => {
     const result = generateContentSchema.safeParse({
       brandId: 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab',
       topic: 'New product launch',
       platforms: ['twitter'],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an unsupported platform', () => {
+    const result = generateContentSchema.safeParse({
+      brandId: 'a1b2c3d4-e5f6-4a1b-8c2d-1234567890ab',
+      topic: 'New product launch',
+      platforms: ['tiktok'],
     });
     expect(result.success).toBe(false);
   });

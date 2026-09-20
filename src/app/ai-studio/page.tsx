@@ -25,13 +25,14 @@ import {
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-type BackendPlatform = 'linkedin' | 'facebook' | 'instagram' | 'twitter';
+type BackendPlatform = 'linkedin' | 'facebook' | 'instagram' | 'twitter' | 'bluesky';
 
 const PLATFORM_OPTIONS: { label: string; value: BackendPlatform | null; color: string }[] = [
   { label: 'LinkedIn', value: 'linkedin', color: 'bg-[#0077B5]' },
   { label: 'Facebook', value: 'facebook', color: 'bg-[#1877F2]' },
   { label: 'Instagram', value: 'instagram', color: 'bg-gradient-to-br from-purple-500 to-pink-500' },
   { label: 'X (Twitter)', value: 'twitter', color: 'bg-black' },
+  { label: 'Bluesky', value: 'bluesky', color: 'bg-[#0085FF]' },
 ];
 
 interface Draft {
@@ -40,6 +41,7 @@ interface Draft {
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
+  bluesky_content: string | null;
   status: string;
 }
 
@@ -161,10 +163,10 @@ export default function AIStudioPage() {
 
   const platformContent: { platform: string; color: string; content: string }[] = draft
     ? PLATFORM_OPTIONS.filter((p) => p.value).flatMap((p) => {
-        const key = `${p.value}_content` as keyof Draft;
-        const content = draft[key] as string | null;
-        return content ? [{ platform: p.label, color: p.color, content }] : [];
-      })
+      const key = `${p.value}_content` as keyof Draft;
+      const content = draft[key] as string | null;
+      return content ? [{ platform: p.label, color: p.color, content }] : [];
+    })
     : [];
 
   return (
@@ -277,18 +279,16 @@ export default function AIStudioPage() {
                             onClick={() => togglePlatform(p.value)}
                             disabled={disabled}
                             title={disabled ? 'Coming in Phase 2' : undefined}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${
-                              disabled
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${disabled
                                 ? 'bg-gray-50 border-gray-100 text-gray-300 cursor-not-allowed'
                                 : active
-                                ? 'bg-green-50 border-green-200 text-green-700'
-                                : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                            }`}
+                                  ? 'bg-green-50 border-green-200 text-green-700'
+                                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                              }`}
                           >
                             <div
-                              className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-                                active ? 'bg-[#25D366] border-[#25D366]' : 'border-gray-300'
-                              }`}
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center ${active ? 'bg-[#25D366] border-[#25D366]' : 'border-gray-300'
+                                }`}
                             >
                               {active && <Check className="w-3 h-3 text-white" />}
                             </div>
@@ -339,13 +339,12 @@ export default function AIStudioPage() {
                   <div className="text-sm">
                     <span className="font-semibold text-gray-700">Status: </span>
                     <span
-                      className={`font-bold ${
-                        draft.status === 'approved'
+                      className={`font-bold ${draft.status === 'approved'
                           ? 'text-green-600'
                           : draft.status === 'rejected'
-                          ? 'text-red-500'
-                          : 'text-amber-600'
-                      }`}
+                            ? 'text-red-500'
+                            : 'text-amber-600'
+                        }`}
                     >
                       {draft.status}
                     </span>
@@ -394,9 +393,8 @@ function SidebarLink({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
-        active ? 'bg-[#25D366]/10 text-[#075E54] font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
-      }`}
+      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${active ? 'bg-[#25D366]/10 text-[#075E54] font-bold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 font-medium'
+        }`}
     >
       <div className={`${active ? 'text-[#25D366]' : 'text-gray-400 group-hover:text-gray-600'} [&>svg]:w-5 [&>svg]:h-5`}>
         {icon}

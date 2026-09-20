@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { publishToLinkedIn, PublishError } from '@/modules/publishing/linkedin-publish.service';
 import { publishToFacebook } from '@/modules/publishing/facebook-publish.service';
 import { publishToTwitter } from '@/modules/publishing/twitter-publish.service';
+import { publishToBluesky } from '@/modules/publishing/bluesky-publish.service';
 import { getDraftBrandId, ApprovalError } from '@/modules/publishing/approval.service';
 import { requireAuth, requireBrandAccess, AuthenticationError } from '@/modules/auth/require-auth';
 import { apiSuccess, apiError } from '@/utils/api-response';
@@ -20,8 +21,8 @@ export async function POST(
         // No body / not JSON — default to 'linkedin' for backward compatibility.
     }
 
-    if (platform !== 'linkedin' && platform !== 'facebook' && platform !== 'twitter') {
-        return apiError(`Unsupported platform '${platform}'. Must be 'linkedin', 'facebook' or 'twitter'.`, 400);
+    if (platform !== 'linkedin' && platform !== 'facebook' && platform !== 'twitter' && platform !== 'bluesky') {
+        return apiError(`Unsupported platform '${platform}'. Must be 'linkedin', 'facebook', 'twitter' or 'bluesky'.`, 400);
     }
 
     try {
@@ -33,8 +34,10 @@ export async function POST(
             platform === 'linkedin'
                 ? await publishToLinkedIn(id)
                 : platform === 'facebook'
-                ? await publishToFacebook(id)
-                : await publishToTwitter(id);
+                    ? await publishToFacebook(id)
+                    : platform === 'twitter'
+                        ? await publishToTwitter(id)
+                        : await publishToBluesky(id);
         return apiSuccess(result);
     } catch (err) {
         if (err instanceof AuthenticationError) return apiError(err.message, err.status);

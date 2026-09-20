@@ -12,11 +12,12 @@ export class ContentError extends Error {
   }
 }
 
-const PLATFORM_COLUMN: Record<Platform, 'linkedin_content' | 'facebook_content' | 'instagram_content' | 'twitter_content'> = {
+const PLATFORM_COLUMN: Record<Platform, 'linkedin_content' | 'facebook_content' | 'instagram_content' | 'twitter_content' | 'bluesky_content'> = {
   linkedin: 'linkedin_content',
   facebook: 'facebook_content',
   instagram: 'instagram_content',
   twitter: 'twitter_content',
+  bluesky: 'bluesky_content',
 };
 
 /**

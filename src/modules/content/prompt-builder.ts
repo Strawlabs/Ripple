@@ -1,4 +1,4 @@
-export type Platform = 'linkedin' | 'facebook' | 'instagram' | 'twitter';
+export type Platform = 'linkedin' | 'facebook' | 'instagram' | 'twitter' | 'bluesky';
 
 export interface BrandContext {
   companyName: string;
@@ -36,6 +36,10 @@ const PLATFORM_GUIDELINES: Record<Platform, string> = {
     'Write for X (formerly Twitter): MUST be under 280 characters total including ' +
     'hashtags. One sharp idea, conversational, no more than 2 hashtags. Do not pad ' +
     'it out — shorter is better than hitting the limit.',
+  bluesky:
+    'Write for Bluesky: MUST be under 300 characters total including hashtags. ' +
+    'Conversational, slightly more casual and community-oriented than X, one clear ' +
+    'idea, no more than 2 hashtags. Do not pad it out — shorter is better than hitting the limit.',
 };
 
 export function buildPrompt(

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(req: NextRequest) {
     const clientId = process.env.FACEBOOK_APP_ID;
     const redirectUri = process.env.FACEBOOK_REDIRECT_URI;
-    const scope = 'pages_show_list,pages_manage_posts';
+    const configId = '1403402111763068';
     const state = crypto.randomUUID();
 
     const brandId = req.nextUrl.searchParams.get('brandId');
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
     authUrl.searchParams.set('client_id', clientId!);
     authUrl.searchParams.set('redirect_uri', redirectUri!);
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('scope', scope);
+    authUrl.searchParams.set('config_id', configId);
     authUrl.searchParams.set('response_type', 'code');
 
     const response = NextResponse.redirect(authUrl.toString());

@@ -32,15 +32,22 @@ interface DraftRow {
   facebook_content: string | null;
   instagram_content: string | null;
   twitter_content: string | null;
+  bluesky_content: string | null;
   status: string;
   created_at: string;
 }
 
-const PLATFORM_META: Record<string, { label: string; color: string }> = {
-  linkedin_content: { label: 'LinkedIn', color: 'bg-[#0077B5]' },
-  facebook_content: { label: 'Facebook', color: 'bg-[#1877F2]' },
-  instagram_content: { label: 'Instagram', color: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]' },
-  twitter_content: { label: 'X', color: 'bg-black' },
+// label/color for display, plus the platform value the /publish API expects
+const PLATFORM_META: Record<string, { label: string; color: string; apiPlatform: string }> = {
+  linkedin_content: { label: 'LinkedIn', color: 'bg-[#0077B5]', apiPlatform: 'linkedin' },
+  facebook_content: { label: 'Facebook', color: 'bg-[#1877F2]', apiPlatform: 'facebook' },
+  instagram_content: {
+    label: 'Instagram',
+    color: 'bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF]',
+    apiPlatform: 'instagram',
+  },
+  twitter_content: { label: 'X', color: 'bg-black', apiPlatform: 'twitter' },
+  bluesky_content: { label: 'Bluesky', color: 'bg-[#0085FF]', apiPlatform: 'bluesky' },
 };
 
 export default function ContentLibraryPage() {
@@ -171,9 +178,13 @@ export default function ContentLibraryPage() {
     }
   };
 
-  const handlePublish = async (id: string, platform: 'linkedin' | 'facebook' | 'twitter') => {
+  // NOTE: now takes the platform explicitly (apiPlatform from PLATFORM_META,
+  // e.g. 'linkedin' | 'facebook' | 'twitter' | 'bluesky') and sends it in
+  // the request body. Previously this was missing, so the backend always
+  // fell back to its 'linkedin' default regardless of which card's button
+  // was clicked.
+  const handlePublish = async (id: string, apiPlatform: string, platformLabel: string) => {
     if (!accessToken) return;
-    const platformLabel = platform === 'linkedin' ? 'LinkedIn' : platform === 'facebook' ? 'Facebook' : 'X';
     if (!window.confirm(`Publish this post to ${platformLabel} now? This cannot be undone.`)) return;
 
     setActioningId(id);
@@ -184,7 +195,7 @@ export default function ContentLibraryPage() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ platform }),
+        body: JSON.stringify({ platform: apiPlatform }),
       });
       const json = await res.json();
       if (json.success) fetchLibrary();
@@ -291,25 +302,21 @@ export default function ContentLibraryPage() {
           {drafts.flatMap((draft) =>
             Object.entries(PLATFORM_META)
               .filter(([key]) => draft[key as keyof DraftRow])
-              .map(([key, meta]) => {
-                const platformSlug = key === 'linkedin_content' ? 'linkedin' : key === 'facebook_content' ? 'facebook' : key === 'twitter_content' ? 'twitter' : null;
-                return (
-                  <ContentCard
-                    key={`${draft.id}-${key}`}
-                    status={draft.status}
-                    platform={meta.label}
-                    platformColor={meta.color}
-                    caption={draft[key as keyof DraftRow] as string}
-                    date={new Date(draft.created_at).toLocaleDateString()}
-                    onApprove={() => handleApprove(draft.id)}
-                    onReject={() => handleReject(draft.id)}
-                    onSchedule={() => handleSchedule(draft.id)}
-                    onPublish={() => platformSlug && handlePublish(draft.id, platformSlug)}
-                    canPublish={platformSlug !== null}
-                    actioning={actioningId === draft.id}
-                  />
-                );
-              })
+              .map(([key, meta]) => (
+                <ContentCard
+                  key={`${draft.id}-${key}`}
+                  status={draft.status}
+                  platform={meta.label}
+                  platformColor={meta.color}
+                  caption={draft[key as keyof DraftRow] as string}
+                  date={new Date(draft.created_at).toLocaleDateString()}
+                  onApprove={() => handleApprove(draft.id)}
+                  onReject={() => handleReject(draft.id)}
+                  onSchedule={() => handleSchedule(draft.id)}
+                  onPublish={() => handlePublish(draft.id, meta.apiPlatform, meta.label)}
+                  actioning={actioningId === draft.id}
+                />
+              ))
           )}
         </div>
       </main>
@@ -364,7 +371,6 @@ function ContentCard({
   onReject,
   onSchedule,
   onPublish,
-  canPublish,
   actioning,
 }: {
   status: string;
@@ -376,7 +382,6 @@ function ContentCard({
   onReject: () => void;
   onSchedule: () => void;
   onPublish: () => void;
-  canPublish: boolean;
   actioning: boolean;
 }) {
   const statusColors: Record<string, string> = {
@@ -423,7 +428,7 @@ function ContentCard({
         </div>
       )}
 
-      {status === 'approved' && canPublish && (
+      {status === 'approved' && (
         <div className="grid grid-cols-2 border-t border-gray-100 bg-gray-50 divide-x divide-gray-100">
           <button
             onClick={onSchedule}
@@ -441,20 +446,6 @@ function ContentCard({
             {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
             Publish Now
           </button>
-        </div>
-      )}
-
-      {status === 'approved' && !canPublish && (
-        <div className="border-t border-gray-100 bg-gray-50">
-          <button
-            onClick={onSchedule}
-            disabled={actioning}
-            className="w-full py-3 flex items-center justify-center gap-1.5 text-[#075E54] hover:bg-white text-xs font-semibold transition-colors disabled:opacity-50"
-          >
-            {actioning ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
-            Schedule
-          </button>
-          <p className="text-[10px] text-gray-400 text-center pb-2">Direct publishing not yet available for {platform}</p>
         </div>
       )}
     </div>
